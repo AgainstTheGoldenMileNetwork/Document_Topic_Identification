@@ -4,6 +4,8 @@ sentence-transformers
 scikit-learn
 numpy
 requests
-dotenv
 datasets
-keybert
+bertopic
+umap-learn
+hdbscan
+networkx
