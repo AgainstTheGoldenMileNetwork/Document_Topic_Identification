@@ -9,7 +9,8 @@ A FastAPI application that clusters US Supreme Court opinions into topics, build
 3. **Clusters** them into topics using BERTopic (UMAP + HDBSCAN + c-TF-IDF)
 4. **Builds a similarity graph** (percentile threshold + k nearest neighbours) and finds communities with Louvain
 5. **Compares** the two groupings (ARI / NMI, contingency table) and explains each case where they disagree
-6. **Serves** an explorer UI, semantic passage search and a REST API
+6. **Checks** everything against the citations in the opinions, and against Claude-written subject / legal-question tags
+7. **Serves** an explorer UI, semantic passage search and a REST API
 
 ## Two approaches to grouping documents
 
@@ -59,6 +60,10 @@ The same jump appears on the bundled 100 cases (Recall@1 0.66 → 0.84).
 
 **7. Most "disagreements" are about granularity, not about cases.** Each flagged case is sorted into one of three kinds: *merged* (the graph put two whole topics in one community), *split* (part of a topic sits with another area) or *lone* (the only case of its topic in its community). On 1,000 cases, 393 of the 554 flagged cases are merged and only 8 are lone. The lone cases are the real conflicts: cases spanning two areas of law (on average only 36% of their passages match their own topic) or cases with no natural group. See [`reports/disagreements.md`](reports/disagreements.md) for the full analysis with examples.
 
+**8. The embeddings read the facts, not the law.** Each case was tagged by Claude with its factual subject and the legal question the Court decides. A shared subject moves similarity almost twice as much as a shared legal question (+0.086 vs +0.049), and the 182 statutory-interpretation cases, spanning 12 subjects, are no more similar to each other than to the rest of the corpus. Citations go the other way: pairs that cite each other share a legal question more often than a subject (60% vs 54%). When a citing pair shares facts the embedding ranks the partner 3rd–4th of 999; when it shares only the legal question, 17th. See [`reports/citations.md`](reports/citations.md).
+
+**9. Hard groupings lose a third of the citation links.** Pairs that cite each other land in the same BERTopic topic 62% of the time and the same Louvain community 69%, even though the similarity ranking puts the partner at a median rank of 9. The ranking keeps what the labels drop.
+
 ## Explorer
 
 `http://localhost:8000/` opens an interactive map: every dot is a case, placed by a 2-D UMAP projection so nearby cases read alike.
@@ -68,7 +73,8 @@ The same jump appears on the bundled 100 cases (Recall@1 0.66 → 0.84).
 - Click a dot for the syllabus, its topic and community, and its most similar cases
 - Click a legend chip or topic row to isolate it; the topic × community heatmap shows how each topic splits across communities
 - Search in plain language ("ship cargo damaged in a storm"); results show the best-matching passage
-- `?q=...`, `?doc=...` and `?mode=agreement` in the URL link straight to a search, a case or a view
+- **Citations** view: citation links drawn on the map, cases coloured by legal question or by subject, and the facts-vs-law tables computed for the loaded corpus; a case shows which linked cases the embedding found and where it ranked them
+- `?q=...`, `?doc=...` and `?mode=citations` in the URL link straight to a search, a case or a view
 
 ## Semantic search
 
@@ -90,7 +96,7 @@ BERTopic labels topics with keywords ("patent / invention / claim"). Set `ENABLE
 |---|---|
 | `GET /clusters` | All topics with label, size, keywords, representative docs |
 | `GET /clusters/{id}` | Topic detail with all member documents |
-| `GET /documents/{id}` | Single document with syllabus, topic, community and passages per topic |
+| `GET /documents/{id}` | Single document with syllabus, topic, community, passages per topic, tags and citation links |
 
 ### Search and similarity
 
@@ -116,6 +122,7 @@ BERTopic labels topics with keywords ("patent / invention / claim"). Set `ENABLE
 |---|---|
 | `GET /analysis/comparison` | ARI / NMI between topics and communities, contingency table, disagreeing cases |
 | `GET /analysis/disagreements` | Each disagreeing case classified as lone / split / merged, with neighbour and similarity evidence |
+| `GET /analysis/citations` | How well similarity, topics and communities recover the citation graph; with tags, whether similarity follows facts or law |
 | `GET /health` | Status check |
 | `GET /docs` | Interactive Swagger UI |
 
@@ -134,7 +141,7 @@ The first start embeds the corpus and fits the models (about 30s for 100 cases);
 
 ### More data
 
-The bundled file has the first 100 cases in the dataset, mostly from the 1880s. For a broader corpus:
+The bundled file has the first 100 cases in the dataset, mostly from the 1880s. For a broader corpus (the sample is seeded, so this reproduces the file the committed tags and reports refer to):
 
 ```bash
 python download_docs.py --num-docs 1000 --sample --out data/sample_1000.jsonl
@@ -160,6 +167,8 @@ All optional, via environment variables:
 | `CACHE_DIR` | `.cache` | Embedding, topic and label cache |
 | `EMBED_MODEL` | `all-MiniLM-L6-v2` | Any sentence-transformers model |
 | `EMBED_STRATEGY` | `chunked` | `chunked` (whole opinion) or `truncated` (first ~256 tokens, the original behaviour) |
+| `STRIP_CITATIONS` | off | Remove citations and case names before embedding (used for the citation analysis) |
+| `TAGS_PATH` | `data/legal_tags_<corpus>.jsonl` | Subject / legal-question tags per case; optional |
 | `SIM_PERCENTILE` | `95` | Pairs above this percentile of similarity become edges |
 | `SIM_THRESHOLD` | unset | Fixed similarity cut-off; overrides the percentile |
 | `SIM_KNN` | `3` | Nearest-neighbour edges added per document |
@@ -176,12 +185,17 @@ data_loader.py      — Document loading, chunking and embedding (with cache)
 topic_modeling.py   — BERTopic configuration, topic extraction, 2-D projection
 similarity.py       — Similarity graph and Louvain communities
 evaluation.py       — Metrics: self-retrieval, coherence, agreement, stability
+citations.py        — Citation extraction, citation graph, facts-vs-law analysis
 evaluate.py         — CLI that writes the reports in reports/
 labeling.py         — Optional Claude topic names
 download_docs.py    — Dataset downloader (CaseSumm from Hugging Face)
 static/explorer.html— Explorer UI
 tests/              — pytest suite (uses a fake embedder; no downloads)
 ```
+
+### Tags
+
+`data/legal_tags_documents.jsonl` and `data/legal_tags_sample_1000.jsonl` hold one line per case: a short subject, a one-sentence legal question, one category for each (13 subject and 13 question categories) and a confidence. They were written by Claude Sonnet from the syllabi in batches of 200. A corpus without a tags file still works; the Citations view just skips the facts-vs-law section.
 
 ## Dataset notes
 
