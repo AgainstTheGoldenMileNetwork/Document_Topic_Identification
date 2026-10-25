@@ -1,11 +1,14 @@
-fastapi
-uvicorn[standard]
-sentence-transformers
-scikit-learn
-numpy
-requests
-datasets
-bertopic
-umap-learn
-hdbscan
-networkx
+# Pinned to the versions the app and tests were last verified with.
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+numpy==2.5.4
+scikit-learn==1.9.1
+torch==2.14.1
+sentence-transformers==6.2.0
+bertopic==0.17.4
+umap-learn==0.5.12
+hdbscan==0.8.44
+networkx==3.7
+anthropic==2.3.0
+datasets==5.1.0

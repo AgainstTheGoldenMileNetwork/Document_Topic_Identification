@@ -1,99 +1,116 @@
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, RedirectResponse
 
-from data_loader import compute_embeddings, load_docs
+from config import get_settings
 from models import (
     ClusterDetail,
     ClusterSummary,
     CommunityDetail,
+    Comparison,
     Document,
     GraphInfo,
+    SearchResult,
     SimilarDocument,
     SimilarityEdge,
 )
-from similarity import SimilarityGraph
-from topic_modeling import run_topic_modeling
+from pipeline import CorpusIndex, build_index
 
-app = FastAPI(
-    title="Legal Topic Sorter",
-    description="Cluster legal case opinions into topics using BERTopic, "
-    "with a similarity graph for finding related cases.",
-    version="2.0.0",
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger("app")
 
-_docs: List[Dict[str, Any]] = []
-_clusters: Dict[int, Dict[str, Any]] = {}
-_sim_graph: SimilarityGraph | None = None
+STATIC_DIR = Path(__file__).parent / "static"
+
+_index: CorpusIndex | None = None
 
 
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
 
-@app.on_event("startup")
-def startup_event():
-    global _docs, _clusters, _sim_graph
-
-    print("Loading documents...")
-    _docs = load_docs()
-    texts = [d["text"] for d in _docs]
-
-    print("Computing embeddings...")
-    embeddings = compute_embeddings(texts)
-
-    print("Running BERTopic...")
-    _docs, _clusters = run_topic_modeling(_docs, embeddings)
-
-    print("Building similarity graph...")
-    doc_ids = [str(d["id"]) for d in _docs]
-    _sim_graph = SimilarityGraph(doc_ids, embeddings, threshold=0.42)
-
-    info = _sim_graph.get_info()
-    print(
-        f"Done — {len(_docs)} docs, {len(_clusters)} topics, "
-        f"{info['num_edges']} edges, {info['communities']} communities"
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    global _index
+    _index = build_index(get_settings())
+    info = _index.graph.get_info()
+    logger.info(
+        "Ready — %d docs, %d topics, %d edges, %d communities",
+        len(_index.docs), len(_index.topics), info["num_edges"], info["communities"],
     )
+    yield
+    _index = None
+
+
+app = FastAPI(
+    title="Legal Topic Sorter",
+    description="Cluster legal case opinions into topics using BERTopic, "
+    "with a similarity graph for finding related cases.",
+    version="3.0.0",
+    lifespan=lifespan,
+)
+
+
+def index() -> CorpusIndex:
+    if _index is None:
+        raise HTTPException(status_code=503, detail="Index not ready")
+    return _index
+
+
+def doc_or_404(doc_id: str) -> Dict[str, Any]:
+    doc = index().docs_by_id.get(doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
 
 
 # ---------------------------------------------------------------------------
-# Existing endpoints (now BERTopic-powered)
+# Explorer UI
 # ---------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/explorer")
+
+
+@app.get("/explorer", include_in_schema=False)
+def explorer():
+    return FileResponse(STATIC_DIR / "explorer.html")
+
 
 @app.get("/health")
 def health():
-    info = _sim_graph.get_info() if _sim_graph else {}
+    idx = _index
     return {
-        "status": "ok",
-        "docs": len(_docs),
-        "clusters": len(_clusters),
-        "communities": info.get("communities", 0),
+        "status": "ok" if idx else "starting",
+        "docs": len(idx.docs) if idx else 0,
+        "clusters": len(idx.topics) if idx else 0,
+        "communities": len(idx.graph.communities) if idx else 0,
     }
 
 
+# ---------------------------------------------------------------------------
+# Topics (BERTopic)
+# ---------------------------------------------------------------------------
+
 @app.get("/clusters", response_model=List[ClusterSummary])
 def list_clusters():
-    result: List[ClusterSummary] = []
-    for cid, info in sorted(_clusters.items()):
-        result.append(
-            ClusterSummary(
-                cluster_id=cid,
-                summary=info["summary"],
-                top_terms=info["top_terms"],
-                example_docs=info["example_docs"],
-            )
-        )
-    return result
+    return [ClusterSummary(cluster_id=cid, **info) for cid, info in sorted(index().topics.items())]
 
 
 @app.get("/clusters/{cluster_id}", response_model=ClusterDetail)
 def get_cluster(cluster_id: int):
-    if cluster_id not in _clusters:
+    idx = index()
+    if cluster_id not in idx.topics:
         raise HTTPException(status_code=404, detail="Cluster not found")
-    info = _clusters[cluster_id]
-    docs = [d for d in _docs if d.get("cluster_id") == cluster_id]
+    info = idx.topics[cluster_id]
+    docs = [d for d in idx.docs if d.get("cluster_id") == cluster_id]
     return ClusterDetail(
         cluster_id=cluster_id,
+        label=info["label"],
         summary=info["summary"],
         top_terms=info["top_terms"],
         documents=[
@@ -111,39 +128,39 @@ def get_cluster(cluster_id: int):
 
 @app.get("/documents/{doc_id}", response_model=Document)
 def get_document(doc_id: str):
-    for d in _docs:
-        if str(d.get("id")) == doc_id:
-            return Document(
-                id=str(d["id"]),
-                title=d.get("title"),
-                court=d.get("court"),
-                date=d.get("date"),
-                text=d.get("text"),
-                cluster_id=d.get("cluster_id"),
-            )
-    raise HTTPException(status_code=404, detail="Document not found")
+    d = doc_or_404(doc_id)
+    return Document(
+        id=str(d["id"]),
+        title=d.get("title"),
+        court=d.get("court"),
+        date=d.get("date"),
+        syllabus=d.get("syllabus"),
+        text=d.get("text"),
+        cluster_id=d.get("cluster_id"),
+        community_id=d.get("community_id"),
+    )
 
 
 # ---------------------------------------------------------------------------
-# Similarity endpoints
+# Search and similarity
 # ---------------------------------------------------------------------------
+
+@app.get("/search", response_model=List[SearchResult])
+def search(
+    q: str = Query(..., min_length=2, max_length=1000, description="Plain-language description of a case"),
+    top_k: int = Query(default=10, ge=1, le=50),
+):
+    """Semantic search: documents ranked by their best-matching passage."""
+    return [SearchResult(**r) for r in index().search(q, top_k=top_k)]
+
 
 @app.get("/documents/{doc_id}/similar", response_model=List[SimilarDocument])
 def get_similar_documents(doc_id: str, top_k: int = Query(default=10, ge=1, le=50)):
-    if _sim_graph is None:
-        raise HTTPException(status_code=503, detail="Graph not ready")
-    pairs = _sim_graph.get_similar(doc_id, top_k=top_k)
-    if not pairs and not any(str(d.get("id")) == doc_id for d in _docs):
-        raise HTTPException(status_code=404, detail="Document not found")
-    # Look up titles
-    id_to_doc = {str(d["id"]): d for d in _docs}
+    doc_or_404(doc_id)
+    idx = index()
     return [
-        SimilarDocument(
-            id=did,
-            title=id_to_doc.get(did, {}).get("title"),
-            similarity=round(sim, 4),
-        )
-        for did, sim in pairs
+        SimilarDocument(id=did, title=idx.docs_by_id[did].get("title"), similarity=round(sim, 4))
+        for did, sim in idx.graph.get_similar(doc_id, top_k=top_k)
     ]
 
 
@@ -153,47 +170,84 @@ def get_similar_documents(doc_id: str, top_k: int = Query(default=10, ge=1, le=5
 
 @app.get("/graph/info", response_model=GraphInfo)
 def graph_info():
-    if _sim_graph is None:
-        raise HTTPException(status_code=503, detail="Graph not ready")
-    return GraphInfo(**_sim_graph.get_info())
+    return GraphInfo(**index().graph.get_info())
 
 
 @app.get("/graph/stats")
 def graph_stats():
     """Similarity distribution stats — useful for picking a good threshold."""
-    if _sim_graph is None:
-        raise HTTPException(status_code=503, detail="Graph not ready")
-    return _sim_graph.get_sim_stats()
+    return index().graph.get_sim_stats()
 
 
 @app.get("/graph/communities", response_model=List[CommunityDetail])
 def list_communities():
-    if _sim_graph is None:
-        raise HTTPException(status_code=503, detail="Graph not ready")
     return [
         CommunityDetail(community_id=i, document_ids=members)
-        for i, members in enumerate(_sim_graph.communities)
+        for i, members in enumerate(index().graph.communities)
     ]
 
 
 @app.get("/graph/communities/{community_id}", response_model=CommunityDetail)
 def get_community(community_id: int):
-    if _sim_graph is None:
-        raise HTTPException(status_code=503, detail="Graph not ready")
-    if community_id < 0 or community_id >= len(_sim_graph.communities):
+    communities = index().graph.communities
+    if community_id < 0 or community_id >= len(communities):
         raise HTTPException(status_code=404, detail="Community not found")
-    return CommunityDetail(
-        community_id=community_id,
-        document_ids=_sim_graph.communities[community_id],
-    )
+    return CommunityDetail(community_id=community_id, document_ids=communities[community_id])
 
 
 @app.get("/graph/edges", response_model=List[SimilarityEdge])
 def list_edges(
-    min_weight: float = Query(default=0.42, ge=0.0, le=1.0),
+    min_weight: float | None = Query(default=None, ge=-1.0, le=1.0, description="Omit to include every graph edge"),
     limit: int = Query(default=100, ge=1, le=1000),
 ):
-    if _sim_graph is None:
-        raise HTTPException(status_code=503, detail="Graph not ready")
-    edges = _sim_graph.get_edges(min_weight=min_weight, limit=limit)
-    return [SimilarityEdge(**e) for e in edges]
+    return [SimilarityEdge(**e) for e in index().graph.get_edges(min_weight=min_weight, limit=limit)]
+
+
+@app.get("/graph/export")
+def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
+    """Everything the explorer needs in one payload: map positions, both groupings, strongest edges."""
+    idx = index()
+    coords = idx.coords
+    span = (coords.max(axis=0) - coords.min(axis=0)).clip(min=1e-9)
+    normed = (coords - coords.min(axis=0)) / span
+    disagree = set(idx.comparison["disagreements"])
+    return {
+        "nodes": [
+            {
+                "id": str(d["id"]),
+                "title": d.get("title"),
+                "date": d.get("date"),
+                "x": round(float(normed[i, 0]), 4),
+                "y": round(float(normed[i, 1]), 4),
+                "topic": d["cluster_id"],
+                "community": d["community_id"],
+                "disagrees": str(d["id"]) in disagree,
+            }
+            for i, d in enumerate(idx.docs)
+        ],
+        "edges": [
+            [e["source"], e["target"], round(e["weight"], 4)]
+            for e in idx.graph.get_edges(limit=max_edges)
+        ] if max_edges else [],
+        "topics": {
+            str(cid): {"label": t["label"], "label_source": t["label_source"], "size": t["size"], "top_terms": t["top_terms"]}
+            for cid, t in sorted(idx.topics.items())
+        },
+        "graph": idx.graph.get_info(),
+        "comparison": {k: v for k, v in idx.comparison.items() if k != "disagreements"},
+        "settings": {
+            "embed_model": idx.settings.embed_model,
+            "embed_strategy": idx.settings.embed_strategy,
+            "outlier_fraction": idx.outlier_fraction,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Analysis
+# ---------------------------------------------------------------------------
+
+@app.get("/analysis/comparison", response_model=Comparison)
+def comparison():
+    """How closely BERTopic topics and Louvain communities agree, and where they don't."""
+    return Comparison(**index().comparison)

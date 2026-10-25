@@ -5,13 +5,18 @@ from pydantic import BaseModel
 
 class ClusterSummary(BaseModel):
     cluster_id: int
+    label: str
+    label_source: str
     summary: str
+    size: int
     top_terms: List[str]
     example_docs: List[str]
+    representative_docs: List[str]
 
 
 class ClusterDetail(BaseModel):
     cluster_id: int
+    label: str
     summary: str
     top_terms: List[str]
     documents: List[Dict[str, Any]]
@@ -22,14 +27,24 @@ class Document(BaseModel):
     title: str | None
     court: Any
     date: str | None
+    syllabus: str | None = None
     text: str
     cluster_id: int | None = None
+    community_id: int | None = None
 
 
 class SimilarDocument(BaseModel):
     id: str
     title: str | None
     similarity: float
+
+
+class SearchResult(BaseModel):
+    id: str
+    title: str | None
+    score: float
+    cluster_id: int | None
+    snippet: str
 
 
 class SimilarityEdge(BaseModel):
@@ -43,8 +58,22 @@ class GraphInfo(BaseModel):
     num_edges: int
     density: float
     communities: int
+    modularity: float
+    threshold: float
+    knn: int
 
 
 class CommunityDetail(BaseModel):
     community_id: int
     document_ids: List[str]
+
+
+class Comparison(BaseModel):
+    ari: float
+    nmi: float
+    num_topics: int
+    num_communities: int
+    disagreement_rate: float
+    community_majority_topic: Dict[str, int]
+    contingency: Dict[str, Dict[str, int]]
+    disagreements: List[str]

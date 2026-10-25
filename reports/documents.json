@@ -1,0 +1,578 @@
+[
+  {
+    "config": "minilm-truncated",
+    "model": "all-MiniLM-L6-v2",
+    "strategy": "truncated",
+    "chunks": 100,
+    "embed_seconds": 7.4,
+    "self_retrieval": {
+      "queries": 100,
+      "mrr": 0.7399016343825667,
+      "recall_at_1": 0.66,
+      "recall_at_5": 0.82,
+      "median_rank": 1.0
+    },
+    "pairwise_similarity": {
+      "mean": 0.3498,
+      "p90": 0.4915,
+      "p95": 0.5298
+    },
+    "topics": {
+      "count": 4,
+      "outlier_fraction": 0.0,
+      "npmi": 0.2084,
+      "diversity": 0.925,
+      "stability_ari": 0.2438,
+      "labels": {
+        "0": "company / railroad / bonds",
+        "1": "company / board / alabama",
+        "2": "patent / invention / claim",
+        "3": "cargo / vessel / master"
+      },
+      "sizes": {
+        "0": 75,
+        "1": 10,
+        "2": 10,
+        "3": 5
+      }
+    },
+    "graph": {
+      "threshold": 0.5298,
+      "communities": 19,
+      "modularity": 0.47
+    },
+    "agreement": {
+      "ari": 0.2697,
+      "nmi": 0.4929,
+      "disagreement_rate": 0.06
+    },
+    "threshold_sweep": [
+      {
+        "percentile": 80,
+        "threshold": 0.4439,
+        "edges": 990,
+        "isolated_docs": 2,
+        "communities": 6,
+        "largest_community_share": 0.34,
+        "modularity": 0.2407,
+        "ari_vs_topics": 0.2074,
+        "nmi_vs_topics": 0.3882
+      },
+      {
+        "percentile": 85,
+        "threshold": 0.4647,
+        "edges": 743,
+        "isolated_docs": 3,
+        "communities": 9,
+        "largest_community_share": 0.31,
+        "modularity": 0.2916,
+        "ari_vs_topics": 0.2183,
+        "nmi_vs_topics": 0.4769
+      },
+      {
+        "percentile": 90,
+        "threshold": 0.4915,
+        "edges": 495,
+        "isolated_docs": 6,
+        "communities": 14,
+        "largest_community_share": 0.32,
+        "modularity": 0.353,
+        "ari_vs_topics": 0.2323,
+        "nmi_vs_topics": 0.4966
+      },
+      {
+        "percentile": 93,
+        "threshold": 0.5123,
+        "edges": 347,
+        "isolated_docs": 11,
+        "communities": 20,
+        "largest_community_share": 0.25,
+        "modularity": 0.4224,
+        "ari_vs_topics": 0.163,
+        "nmi_vs_topics": 0.4411
+      },
+      {
+        "percentile": 95,
+        "threshold": 0.5298,
+        "edges": 248,
+        "isolated_docs": 12,
+        "communities": 19,
+        "largest_community_share": 0.37,
+        "modularity": 0.47,
+        "ari_vs_topics": 0.2697,
+        "nmi_vs_topics": 0.4929
+      },
+      {
+        "percentile": 97,
+        "threshold": 0.5582,
+        "edges": 149,
+        "isolated_docs": 28,
+        "communities": 38,
+        "largest_community_share": 0.17,
+        "modularity": 0.53,
+        "ari_vs_topics": 0.1045,
+        "nmi_vs_topics": 0.4162
+      },
+      {
+        "percentile": 98,
+        "threshold": 0.578,
+        "edges": 99,
+        "isolated_docs": 39,
+        "communities": 48,
+        "largest_community_share": 0.16,
+        "modularity": 0.5708,
+        "ari_vs_topics": 0.0778,
+        "nmi_vs_topics": 0.3988
+      },
+      {
+        "percentile": 99,
+        "threshold": 0.6059,
+        "edges": 50,
+        "isolated_docs": 58,
+        "communities": 66,
+        "largest_community_share": 0.11,
+        "modularity": 0.6506,
+        "ari_vs_topics": 0.035,
+        "nmi_vs_topics": 0.3382
+      }
+    ]
+  },
+  {
+    "config": "minilm-chunked",
+    "model": "all-MiniLM-L6-v2",
+    "strategy": "chunked",
+    "chunks": 1589,
+    "embed_seconds": 0.0,
+    "self_retrieval": {
+      "queries": 100,
+      "mrr": 0.8734574314574314,
+      "recall_at_1": 0.84,
+      "recall_at_5": 0.93,
+      "median_rank": 1.0
+    },
+    "pairwise_similarity": {
+      "mean": 0.4968,
+      "p90": 0.6651,
+      "p95": 0.7102
+    },
+    "topics": {
+      "count": 9,
+      "outlier_fraction": 0.14,
+      "npmi": 0.2007,
+      "diversity": 0.9,
+      "stability_ari": 0.3684,
+      "labels": {
+        "0": "bonds / coupons / city",
+        "1": "patent / invention / claim",
+        "2": "company / railroad / railroad company",
+        "3": "jurisdiction / writ / value",
+        "4": "cargo / vessel / master",
+        "5": "bond / property / appeal",
+        "6": "flaglor / deed / title",
+        "7": "policy / suit / life",
+        "8": "attorney / indictment / conviction"
+      },
+      "sizes": {
+        "0": 23,
+        "1": 12,
+        "2": 11,
+        "3": 11,
+        "4": 10,
+        "5": 10,
+        "6": 10,
+        "7": 6,
+        "8": 7
+      }
+    },
+    "graph": {
+      "threshold": 0.7102,
+      "communities": 42,
+      "modularity": 0.3674
+    },
+    "agreement": {
+      "ari": 0.3192,
+      "nmi": 0.6496,
+      "disagreement_rate": 0.18
+    },
+    "threshold_sweep": [
+      {
+        "percentile": 80,
+        "threshold": 0.6091,
+        "edges": 990,
+        "isolated_docs": 7,
+        "communities": 11,
+        "largest_community_share": 0.3,
+        "modularity": 0.2015,
+        "ari_vs_topics": 0.4618,
+        "nmi_vs_topics": 0.6125
+      },
+      {
+        "percentile": 85,
+        "threshold": 0.6329,
+        "edges": 743,
+        "isolated_docs": 12,
+        "communities": 17,
+        "largest_community_share": 0.33,
+        "modularity": 0.2277,
+        "ari_vs_topics": 0.343,
+        "nmi_vs_topics": 0.5673
+      },
+      {
+        "percentile": 90,
+        "threshold": 0.6651,
+        "edges": 495,
+        "isolated_docs": 20,
+        "communities": 26,
+        "largest_community_share": 0.28,
+        "modularity": 0.2655,
+        "ari_vs_topics": 0.3907,
+        "nmi_vs_topics": 0.6447
+      },
+      {
+        "percentile": 93,
+        "threshold": 0.6879,
+        "edges": 347,
+        "isolated_docs": 25,
+        "communities": 34,
+        "largest_community_share": 0.22,
+        "modularity": 0.3309,
+        "ari_vs_topics": 0.4113,
+        "nmi_vs_topics": 0.6649
+      },
+      {
+        "percentile": 95,
+        "threshold": 0.7102,
+        "edges": 248,
+        "isolated_docs": 31,
+        "communities": 42,
+        "largest_community_share": 0.17,
+        "modularity": 0.3674,
+        "ari_vs_topics": 0.3192,
+        "nmi_vs_topics": 0.6496
+      },
+      {
+        "percentile": 97,
+        "threshold": 0.7322,
+        "edges": 149,
+        "isolated_docs": 42,
+        "communities": 49,
+        "largest_community_share": 0.18,
+        "modularity": 0.4313,
+        "ari_vs_topics": 0.2176,
+        "nmi_vs_topics": 0.5833
+      },
+      {
+        "percentile": 98,
+        "threshold": 0.7505,
+        "edges": 99,
+        "isolated_docs": 46,
+        "communities": 54,
+        "largest_community_share": 0.21,
+        "modularity": 0.4925,
+        "ari_vs_topics": 0.2281,
+        "nmi_vs_topics": 0.6205
+      },
+      {
+        "percentile": 99,
+        "threshold": 0.7792,
+        "edges": 50,
+        "isolated_docs": 60,
+        "communities": 70,
+        "largest_community_share": 0.11,
+        "modularity": 0.6084,
+        "ari_vs_topics": 0.1393,
+        "nmi_vs_topics": 0.6254
+      }
+    ]
+  },
+  {
+    "config": "bge-small-chunked",
+    "model": "BAAI/bge-small-en-v1.5",
+    "strategy": "chunked",
+    "chunks": 743,
+    "embed_seconds": 14.7,
+    "self_retrieval": {
+      "queries": 100,
+      "mrr": 0.8893872285659815,
+      "recall_at_1": 0.86,
+      "recall_at_5": 0.91,
+      "median_rank": 1.0
+    },
+    "pairwise_similarity": {
+      "mean": 0.7902,
+      "p90": 0.8644,
+      "p95": 0.8826
+    },
+    "topics": {
+      "count": 7,
+      "outlier_fraction": 0.09,
+      "npmi": 0.2465,
+      "diversity": 0.9571,
+      "stability_ari": 0.6164,
+      "labels": {
+        "0": "company / railroad / bonds",
+        "1": "suit / assignee / property",
+        "2": "flaglor / deed / title",
+        "3": "attorney / ex / indictment",
+        "4": "vessel / cargo / master",
+        "5": "patent / saw / invention",
+        "6": "appeal / bond / damages"
+      },
+      "sizes": {
+        "0": 39,
+        "1": 17,
+        "2": 11,
+        "3": 9,
+        "4": 9,
+        "5": 7,
+        "6": 8
+      }
+    },
+    "graph": {
+      "threshold": 0.8826,
+      "communities": 51,
+      "modularity": 0.2651
+    },
+    "agreement": {
+      "ari": 0.2101,
+      "nmi": 0.5741,
+      "disagreement_rate": 0.13
+    },
+    "threshold_sweep": [
+      {
+        "percentile": 80,
+        "threshold": 0.8412,
+        "edges": 990,
+        "isolated_docs": 9,
+        "communities": 15,
+        "largest_community_share": 0.3,
+        "modularity": 0.1555,
+        "ari_vs_topics": 0.415,
+        "nmi_vs_topics": 0.5483
+      },
+      {
+        "percentile": 85,
+        "threshold": 0.8509,
+        "edges": 743,
+        "isolated_docs": 16,
+        "communities": 23,
+        "largest_community_share": 0.31,
+        "modularity": 0.16,
+        "ari_vs_topics": 0.411,
+        "nmi_vs_topics": 0.5904
+      },
+      {
+        "percentile": 90,
+        "threshold": 0.8644,
+        "edges": 495,
+        "isolated_docs": 26,
+        "communities": 34,
+        "largest_community_share": 0.25,
+        "modularity": 0.2044,
+        "ari_vs_topics": 0.2612,
+        "nmi_vs_topics": 0.5727
+      },
+      {
+        "percentile": 93,
+        "threshold": 0.8753,
+        "edges": 347,
+        "isolated_docs": 33,
+        "communities": 40,
+        "largest_community_share": 0.21,
+        "modularity": 0.2213,
+        "ari_vs_topics": 0.2665,
+        "nmi_vs_topics": 0.5682
+      },
+      {
+        "percentile": 95,
+        "threshold": 0.8826,
+        "edges": 248,
+        "isolated_docs": 45,
+        "communities": 51,
+        "largest_community_share": 0.19,
+        "modularity": 0.2651,
+        "ari_vs_topics": 0.2101,
+        "nmi_vs_topics": 0.5741
+      },
+      {
+        "percentile": 97,
+        "threshold": 0.8922,
+        "edges": 149,
+        "isolated_docs": 53,
+        "communities": 59,
+        "largest_community_share": 0.15,
+        "modularity": 0.3159,
+        "ari_vs_topics": 0.1292,
+        "nmi_vs_topics": 0.5524
+      },
+      {
+        "percentile": 98,
+        "threshold": 0.8979,
+        "edges": 99,
+        "isolated_docs": 61,
+        "communities": 65,
+        "largest_community_share": 0.16,
+        "modularity": 0.3588,
+        "ari_vs_topics": 0.1415,
+        "nmi_vs_topics": 0.5563
+      },
+      {
+        "percentile": 99,
+        "threshold": 0.9092,
+        "edges": 50,
+        "isolated_docs": 67,
+        "communities": 72,
+        "largest_community_share": 0.1,
+        "modularity": 0.5648,
+        "ari_vs_topics": 0.0988,
+        "nmi_vs_topics": 0.5666
+      }
+    ]
+  },
+  {
+    "config": "mpnet-chunked",
+    "model": "all-mpnet-base-v2",
+    "strategy": "chunked",
+    "chunks": 1003,
+    "embed_seconds": 59.1,
+    "self_retrieval": {
+      "queries": 100,
+      "mrr": 0.9041699134199134,
+      "recall_at_1": 0.86,
+      "recall_at_5": 0.95,
+      "median_rank": 1.0
+    },
+    "pairwise_similarity": {
+      "mean": 0.5679,
+      "p90": 0.7149,
+      "p95": 0.7526
+    },
+    "topics": {
+      "count": 8,
+      "outlier_fraction": 0.08,
+      "npmi": 0.2129,
+      "diversity": 0.9625,
+      "stability_ari": 0.6868,
+      "labels": {
+        "0": "company / railroad / bonds",
+        "1": "vessel / cargo / master",
+        "2": "flaglor / deed / charles",
+        "3": "attorney / ex / indictment",
+        "4": "patent / saw / invention",
+        "5": "suit / assignee / property",
+        "6": "appeal / bond / damages",
+        "7": "policy / life / insurance"
+      },
+      "sizes": {
+        "0": 44,
+        "1": 12,
+        "2": 11,
+        "3": 8,
+        "4": 7,
+        "5": 7,
+        "6": 6,
+        "7": 5
+      }
+    },
+    "graph": {
+      "threshold": 0.7526,
+      "communities": 35,
+      "modularity": 0.43
+    },
+    "agreement": {
+      "ari": 0.2906,
+      "nmi": 0.5724,
+      "disagreement_rate": 0.2
+    },
+    "threshold_sweep": [
+      {
+        "percentile": 80,
+        "threshold": 0.6682,
+        "edges": 990,
+        "isolated_docs": 7,
+        "communities": 12,
+        "largest_community_share": 0.28,
+        "modularity": 0.2096,
+        "ari_vs_topics": 0.3246,
+        "nmi_vs_topics": 0.4936
+      },
+      {
+        "percentile": 85,
+        "threshold": 0.6884,
+        "edges": 743,
+        "isolated_docs": 8,
+        "communities": 14,
+        "largest_community_share": 0.28,
+        "modularity": 0.2475,
+        "ari_vs_topics": 0.3043,
+        "nmi_vs_topics": 0.4972
+      },
+      {
+        "percentile": 90,
+        "threshold": 0.7149,
+        "edges": 495,
+        "isolated_docs": 13,
+        "communities": 20,
+        "largest_community_share": 0.31,
+        "modularity": 0.3111,
+        "ari_vs_topics": 0.3133,
+        "nmi_vs_topics": 0.5836
+      },
+      {
+        "percentile": 93,
+        "threshold": 0.737,
+        "edges": 347,
+        "isolated_docs": 20,
+        "communities": 26,
+        "largest_community_share": 0.28,
+        "modularity": 0.3571,
+        "ari_vs_topics": 0.2261,
+        "nmi_vs_topics": 0.5458
+      },
+      {
+        "percentile": 95,
+        "threshold": 0.7526,
+        "edges": 248,
+        "isolated_docs": 28,
+        "communities": 35,
+        "largest_community_share": 0.23,
+        "modularity": 0.43,
+        "ari_vs_topics": 0.2906,
+        "nmi_vs_topics": 0.5724
+      },
+      {
+        "percentile": 97,
+        "threshold": 0.7728,
+        "edges": 149,
+        "isolated_docs": 45,
+        "communities": 53,
+        "largest_community_share": 0.16,
+        "modularity": 0.4322,
+        "ari_vs_topics": 0.1653,
+        "nmi_vs_topics": 0.5642
+      },
+      {
+        "percentile": 98,
+        "threshold": 0.7888,
+        "edges": 99,
+        "isolated_docs": 53,
+        "communities": 62,
+        "largest_community_share": 0.13,
+        "modularity": 0.496,
+        "ari_vs_topics": 0.116,
+        "nmi_vs_topics": 0.564
+      },
+      {
+        "percentile": 99,
+        "threshold": 0.8162,
+        "edges": 50,
+        "isolated_docs": 65,
+        "communities": 72,
+        "largest_community_share": 0.13,
+        "modularity": 0.5035,
+        "ari_vs_topics": 0.1039,
+        "nmi_vs_topics": 0.5644
+      }
+    ]
+  }
+]
