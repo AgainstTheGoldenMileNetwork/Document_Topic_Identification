@@ -164,6 +164,19 @@
   .score { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; flex: none; }
   .snippet { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
 
+  .kind + .kind { margin-top: 14px; }
+  .kind-head { display: flex; align-items: center; gap: 7px; font-size: 13.5px; }
+  .kind-head .count { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  .kind p { margin: 3px 0 6px; }
+  .more { font-size: 12px; color: var(--text-muted); padding: 6px 4px 0; }
+  ul.list button[aria-pressed="true"] { background: var(--surface-2); box-shadow: inset 2px 0 0 var(--text-primary); }
+  .evidence { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--text-secondary); }
+  .evidence li + li { margin-top: 3px; }
+  .verdict { font-size: 12.5px; margin-top: 6px; color: var(--text-primary); }
+  .mixbar { display: flex; gap: 2px; height: 14px; margin: 6px 0 8px; }
+  .mixbar div { border-radius: 3px; min-width: 3px; }
+  .mixkey { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-secondary); }
+
   #tooltip {
     position: fixed; pointer-events: none; z-index: 10; max-width: 300px;
     background: var(--surface-1); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12);
@@ -223,8 +236,19 @@
   const legendEl = document.getElementById("legend");
   const tooltip = document.getElementById("tooltip");
 
+  // How a disagreeing case relates to its community (see explain_disagreements in evaluation.py).
+  const KINDS = {
+    lone: { slot: 1, name: "Lone cases", short: "Lone case",
+      blurb: "The only case of its topic in its community. These are the cases the two methods really place differently, often because the case spans two areas of law." },
+    split: { slot: 2, name: "Split topics", short: "Split topic",
+      blurb: "A group of cases from one topic sits in a community where another topic dominates, apart from the rest of their topic." },
+    merged: { slot: 0, name: "Merged topics", short: "Merged topic",
+      blurb: "Most of the topic is in this community, but it shares the community with a larger topic. The graph drew one group where BERTopic drew two, so nothing about these cases is unusual." },
+  };
+  const KIND_ORDER = ["lone", "split", "merged"];
+
   const state = {
-    data: null, mode: "topic", showEdges: true, isolate: null,
+    data: null, mode: "topic", showEdges: true, isolate: null, group: null,
     hover: null, selected: null, neighbors: [], hits: new Set(), searchResults: null,
     transform: d3.zoomIdentity, width: 0, height: 0,
   };
@@ -271,12 +295,12 @@
   function groupOf(node) {
     if (state.mode === "topic") return node.topic;
     if (state.mode === "community") return node.community;
-    return node.disagrees ? "disagree" : "agree";
+    return node.kind;
   }
 
   function colorOf(node) {
     const s = state.data.slots;
-    if (state.mode === "agreement") return node.disagrees ? colors.series[1] : colors.muted;
+    if (state.mode === "agreement") return node.kind === "agree" ? colors.muted : colors.series[KINDS[node.kind].slot];
     const slot = state.mode === "topic" ? s.topicSlot.get(node.topic) : s.commSlot.get(node.community);
     return slot === undefined ? colors.muted : colors.series[slot];
   }
@@ -399,11 +423,10 @@
     const s = state.data.slots;
     let items;
     if (state.mode === "agreement") {
-      const n = state.data.nodes.filter((d) => d.disagrees).length;
-      items = [
-        { key: "disagree", color: colors.series[1], name: `Topic differs from its community's majority (${n})` },
-        { key: "agree", color: colors.muted, name: `Methods agree (${state.data.nodes.length - n})` },
-      ];
+      const counts = state.data.disagreements.counts;
+      const n = d3.sum(KIND_ORDER, (k) => counts[k]);
+      items = KIND_ORDER.map((k) => ({ key: k, color: colors.series[KINDS[k].slot], name: `${KINDS[k].name} (${counts[k]})` }));
+      items.push({ key: "agree", color: colors.muted, name: `Methods agree (${state.data.nodes.length - n})` });
     } else if (state.mode === "topic") {
       items = s.topicOrder.filter((id) => s.topicSlot.has(id)).map((id) => ({
         key: id, color: colors.series[s.topicSlot.get(id)], name: `${topicLabel(id)} (${state.data.topics[id].size})`,
@@ -449,12 +472,14 @@
         <td class="num">${t.size}</td></tr>`;
     }).join("");
 
-    panel.innerHTML = `
+    const topicsSection = `
       <section>
         <h2>Topics</h2>
         <p class="small muted" style="margin:0 0 8px">${esc(labelNote)} Click a row to isolate it on the map.</p>
         <table class="topics"><tbody>${rows}</tbody></table>
-      </section>
+      </section>`;
+    panel.innerHTML = `
+      ${state.mode === "agreement" ? renderDisagreements() + topicsSection.replace("<section>", '<section style="margin-top:22px">') : topicsSection}
       <section>
         <h2>Topics × communities</h2>
         <p class="small muted" style="margin:0 0 8px">How BERTopic topics (rows) split across Louvain communities (columns).
@@ -481,7 +506,55 @@
       tr.addEventListener("click", act);
       tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
     });
+    panel.querySelectorAll("button[data-group]").forEach((b) => b.addEventListener("click", () => {
+      const key = b.dataset.group;
+      state.group = state.group === key ? null : key;
+      const g = state.data.disagreements.groups[Number(key)];
+      // A merged group is best seen as the whole community it shares; others as just their cases.
+      const ids = !state.group ? [] : g.kind === "merged"
+        ? state.data.nodes.filter((n) => n.community === g.community).map((n) => n.id) : g.docs;
+      state.hits = new Set(ids);
+      renderOverview(); draw();
+    }));
+    panel.querySelectorAll("button[data-id]").forEach((b) => b.addEventListener("click", () => selectDoc(b.dataset.id)));
     bindHeatTooltips();
+  }
+
+  function renderDisagreements() {
+    const { data } = state;
+    const dis = data.disagreements;
+    const total = d3.sum(KIND_ORDER, (k) => dis.counts[k]);
+    const LIMIT = 6;
+    const t = (id) => `<b>${esc(topicLabel(id))}</b>`;
+    const groupRow = (g, i) => {
+      if (g.kind === "lone") {
+        const n = byId.get(g.docs[0]);
+        return `<li><button type="button" data-id="${esc(n.id)}"><div class="row"><span>${esc(n.title)}</span></div>
+          <div class="snippet">${esc(topicLabel(g.topic))} · alone in community ${g.community} (mostly ${esc(topicLabel(g.majority_topic))})</div></button></li>`;
+      }
+      const text = g.kind === "split"
+        ? `${g.docs.length} of ${g.topic_size} ${t(g.topic)} cases are in community ${g.community}, mostly ${t(g.majority_topic)}`
+        : `Community ${g.community}: ${t(g.topic)} (${g.docs.length} of ${g.topic_size}) shares it with ${t(g.majority_topic)}`;
+      return `<li><button type="button" data-group="${i}" aria-pressed="${state.group === String(i)}"><div class="snippet" style="margin:0">${text}</div></button></li>`;
+    };
+    const blocks = KIND_ORDER.map((kind) => {
+      const groups = dis.groups.map((g, i) => [g, i]).filter(([g]) => g.kind === kind);
+      if (!groups.length) return "";
+      const hint = kind === "lone" ? " Click one to see the evidence." : " Click a row to highlight it on the map.";
+      return `<div class="kind">
+        <div class="kind-head"><span class="swatch" style="background:${colors.series[KINDS[kind].slot]}"></span><b>${KINDS[kind].name}</b><span class="count">${dis.counts[kind]}</span></div>
+        <p class="small muted">${esc(KINDS[kind].blurb)}${hint}</p>
+        <ul class="list">${groups.slice(0, LIMIT).map(([g, i]) => groupRow(g, i)).join("")}</ul>
+        ${groups.length > LIMIT ? `<div class="more">+ ${groups.length - LIMIT} more ${kind === "lone" ? "cases" : "groups"} (see /analysis/disagreements)</div>` : ""}
+      </div>`;
+    }).join("");
+    return `
+      <section>
+        <h2>What the disagreements are</h2>
+        <p class="small secondary" style="margin:0 0 12px">${total} cases (${pct(total / data.nodes.length)}) have a topic that differs
+          from most of their community. That covers three different situations, and only the first is about the case itself:</p>
+        ${blocks}
+      </section>`;
   }
 
   function renderHeatmap() {
@@ -545,7 +618,6 @@
     const s = state.data.slots;
     const tSlot = s.topicSlot.get(doc.cluster_id);
     const cSlot = s.commSlot.get(doc.community_id);
-    const majority = state.data.comparison.community_majority_topic[String(doc.community_id)];
     const syllabus = doc.syllabus || doc.text.slice(0, 1200);
     panel.innerHTML = `
       <button type="button" class="link-button small" id="back">← All topics</button>
@@ -556,7 +628,8 @@
           <span class="pill"><span class="swatch" style="background:${cSlot === undefined ? colors.muted : colors.series[cSlot]}"></span>Community ${doc.community_id}</span>
           ${doc.date ? `<span class="muted">${esc(doc.date)}</span>` : ""}
         </div>
-        ${node.disagrees ? `<div class="note">The methods disagree here: most of community ${doc.community_id} is in <b>${esc(topicLabel(majority))}</b>, but BERTopic put this case in a different topic.</div>` : ""}
+        ${node.kind !== "agree" ? renderWhy(state.data.disagreements.docs[doc.id]) : ""}
+        ${renderPassageMix(doc.passage_topics)}
         <h2 style="margin-top:12px">${doc.syllabus ? "Syllabus" : "Opening of the opinion"}</h2>
         <div class="syllabus">${esc(syllabus.length > 1400 ? syllabus.slice(0, 1400) + "…" : syllabus)}</div>
         <p class="small"><a href="/documents/${encodeURIComponent(doc.id)}" target="_blank" rel="noopener">Full opinion (JSON)</a></p>
@@ -571,7 +644,49 @@
       </section>`;
     panel.querySelector("#back").addEventListener("click", clearSelection);
     panel.querySelectorAll("button[data-id]").forEach((b) => b.addEventListener("click", () => selectDoc(b.dataset.id)));
+    bindHeatTooltips();
     panel.scrollTop = 0;
+  }
+
+  function renderWhy(x) {
+    const T = `<b>${esc(topicLabel(x.topic))}</b>`, M = `<b>${esc(topicLabel(x.majority_topic))}</b>`;
+    const where = {
+      lone: `The only ${T} case in community ${x.community}, where most cases are ${M}. The rest of its topic is mainly in community ${x.home_community}.`,
+      split: `${x.topic_in_community} of ${x.topic_size} ${T} cases are in community ${x.community}, where most cases are ${M}. The rest of the topic is mainly in community ${x.home_community}.`,
+      merged: `Community ${x.community} holds two topics: ${M} and most of ${T} (${x.topic_in_community} of ${x.topic_size}). The graph drew one group where BERTopic drew two, so this is about granularity, not about this case.`,
+    }[x.kind];
+    const nb = x.neighbors, sim = x.similarity;
+    const favoursTopic = nb.same_topic > nb.same_community, favoursComm = nb.same_topic < nb.same_community;
+    const closerOwn = sim.own_topic >= sim.majority_topic;
+    const verdict = favoursTopic && closerOwn ? "Both signals favour BERTopic's topic."
+      : favoursComm && !closerOwn ? `Both signals favour the graph: this case reads more like ${M}.`
+      : "The signals point different ways: the case sits between the two areas.";
+    return `<div class="note">
+      <div><span class="pill"><span class="swatch" style="background:${colors.series[KINDS[x.kind].slot]}"></span><b>${KINDS[x.kind].short}</b></span></div>
+      <div style="margin-top:4px">${where}</div>
+      <ul class="evidence">
+        <li>Its ${nb.k} nearest cases: ${nb.same_topic} share its topic, ${nb.same_community} share its community${x.majority_topic !== x.topic ? `, ${nb.majority_topic} are ${M}` : ""}.</li>
+        <li>Similarity to the rest of its topic ${sim.own_topic.toFixed(2)}, to ${M} ${sim.majority_topic.toFixed(2)}.</li>
+      </ul>
+      <div class="verdict">${verdict}</div>
+    </div>`;
+  }
+
+  // Each passage (embedding chunk) matched to its nearest topic: a split bar means the case covers several areas.
+  function renderPassageMix(mix) {
+    const entries = Object.entries(mix || {}).map(([t, n]) => [Number(t), n]);
+    const total = d3.sum(entries, (e) => e[1]);
+    if (!total) return "";
+    const s = state.data.slots;
+    const color = (t) => { const slot = s.topicSlot.get(t); return slot === undefined ? colors.muted : colors.series[slot]; };
+    const bar = entries.map(([t, n]) =>
+      `<div data-tip="${esc(topicLabel(t))}: <b>${n}</b> of ${total} passages (${pct(n / total)})" style="flex:${n};background:${color(t)}"></div>`).join("");
+    const key = entries.slice(0, 4).map(([t, n]) =>
+      `<span class="pill"><span class="swatch" style="background:${color(t)}"></span>${esc(topicLabel(t))} ${pct(n / total)}</span>`).join("");
+    return `<h2 style="margin-top:14px">Passages by topic</h2>
+      <p class="small muted" style="margin:0">Each of the opinion's ${total} passage${total === 1 ? "" : "s"} matched to its nearest topic.</p>
+      <div class="mixbar" role="img" aria-label="Passages by topic">${bar}</div>
+      <div class="mixkey">${key}${entries.length > 4 ? `<span class="muted">+ ${entries.length - 4} more</span>` : ""}</div>`;
   }
 
   function renderSearch(query, results) {
@@ -593,7 +708,7 @@
   }
 
   function clearSelection() {
-    state.selected = null; state.neighbors = []; state.hits = new Set(); state.searchResults = null;
+    state.selected = null; state.neighbors = []; state.hits = new Set(); state.searchResults = null; state.group = null;
     document.getElementById("search").value = "";
     setParam(null);
     renderOverview(); draw();
@@ -612,7 +727,7 @@
   function nodeTooltip(n) {
     return `<b>${esc(n.title)}</b>${n.date ? ` <span class="muted">${esc(n.date)}</span>` : ""}<br>
       <span class="secondary">Topic:</span> ${esc(topicLabel(n.topic))}<br>
-      <span class="secondary">Community:</span> ${n.community}${n.disagrees ? `<br><span class="secondary">Methods disagree on this case</span>` : ""}`;
+      <span class="secondary">Community:</span> ${n.community}${n.kind !== "agree" ? `<br><span class="secondary">Disagreement:</span> ${KINDS[n.kind].short}` : ""}`;
   }
 
   // ---------- interaction ----------
@@ -641,6 +756,10 @@
 
   function setMode(mode) {
     state.mode = mode; state.isolate = null;
+    if (state.group) { state.group = null; state.hits = new Set(); }
+    const url = new URL(window.location);
+    if (mode === "topic") url.searchParams.delete("mode"); else url.searchParams.set("mode", mode);
+    history.replaceState(null, "", url);
     document.querySelectorAll(".segmented button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
     renderLegend(); draw();
   }
@@ -692,10 +811,11 @@
         [data.graph.communities, "communities"], [c.ari.toFixed(2), "ARI"], [c.nmi.toFixed(2), "NMI"],
         [pct(c.disagreement_rate), "disagree"],
       ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+      const params = new URLSearchParams(window.location.search);
+      if (["topic", "community", "agreement"].includes(params.get("mode"))) setMode(params.get("mode"));
       renderLegend();  // before layout, so the map reserves room for it
       resize();
       renderOverview();
-      const params = new URLSearchParams(window.location.search);
       if (params.get("doc")) selectDoc(params.get("doc"));
       else if (params.get("q")) runSearch(params.get("q"));
     } catch (err) {

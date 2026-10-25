@@ -8,7 +8,7 @@ A FastAPI application that clusters US Supreme Court opinions into topics, build
 2. **Embeds** each full opinion with `all-MiniLM-L6-v2`, in overlapping 240-token windows averaged into one vector per case
 3. **Clusters** them into topics using BERTopic (UMAP + HDBSCAN + c-TF-IDF)
 4. **Builds a similarity graph** (percentile threshold + k nearest neighbours) and finds communities with Louvain
-5. **Compares** the two groupings (ARI / NMI, contingency table, per-case disagreements)
+5. **Compares** the two groupings (ARI / NMI, contingency table) and explains each case where they disagree
 6. **Serves** an explorer UI, semantic passage search and a REST API
 
 ## Two approaches to grouping documents
@@ -57,15 +57,18 @@ The same jump appears on the bundled 100 cases (Recall@1 0.66 → 0.84).
 
 **6. 100 cases is too few for stable topics.** Re-running BERTopic with a different random seed reproduces the 100-case topics poorly (ARI 0.37 between runs), versus 0.57 on 1,000 cases. Use the larger sample for anything you want to draw conclusions from.
 
+**7. Most "disagreements" are about granularity, not about cases.** Each flagged case is sorted into one of three kinds: *merged* (the graph put two whole topics in one community), *split* (part of a topic sits with another area) or *lone* (the only case of its topic in its community). On 1,000 cases, 393 of the 554 flagged cases are merged and only 8 are lone. The lone cases are the real conflicts: cases spanning two areas of law (on average only 36% of their passages match their own topic) or cases with no natural group. See [`reports/disagreements.md`](reports/disagreements.md) for the full analysis with examples.
+
 ## Explorer
 
 `http://localhost:8000/` opens an interactive map: every dot is a case, placed by a 2-D UMAP projection so nearby cases read alike.
 
-- **Color by** BERTopic topic, Louvain community, or **Disagreements** (cases whose topic differs from the majority of their community)
+- **Color by** BERTopic topic, Louvain community, or **Disagreements** (cases whose topic differs from the majority of their community), sorted into lone, split and merged with an explanation of each
+- Each case shows how its passages divide between topics, and for a disagreeing case the evidence on which method's placement fits it better
 - Click a dot for the syllabus, its topic and community, and its most similar cases
 - Click a legend chip or topic row to isolate it; the topic × community heatmap shows how each topic splits across communities
 - Search in plain language ("ship cargo damaged in a storm"); results show the best-matching passage
-- `?q=...` and `?doc=...` in the URL link straight to a search or a case
+- `?q=...`, `?doc=...` and `?mode=agreement` in the URL link straight to a search, a case or a view
 
 ## Semantic search
 
@@ -87,7 +90,7 @@ BERTopic labels topics with keywords ("patent / invention / claim"). Set `ENABLE
 |---|---|
 | `GET /clusters` | All topics with label, size, keywords, representative docs |
 | `GET /clusters/{id}` | Topic detail with all member documents |
-| `GET /documents/{id}` | Single document with syllabus, topic and community |
+| `GET /documents/{id}` | Single document with syllabus, topic, community and passages per topic |
 
 ### Search and similarity
 
@@ -112,6 +115,7 @@ BERTopic labels topics with keywords ("patent / invention / claim"). Set `ENABLE
 | Endpoint | Description |
 |---|---|
 | `GET /analysis/comparison` | ARI / NMI between topics and communities, contingency table, disagreeing cases |
+| `GET /analysis/disagreements` | Each disagreeing case classified as lone / split / merged, with neighbour and similarity evidence |
 | `GET /health` | Status check |
 | `GET /docs` | Interactive Swagger UI |
 

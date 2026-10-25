@@ -31,6 +31,7 @@ class Document(BaseModel):
     text: str
     cluster_id: int | None = None
     community_id: int | None = None
+    passage_topics: Dict[int, int] = {}
 
 
 class SimilarDocument(BaseModel):
@@ -77,3 +78,31 @@ class Comparison(BaseModel):
     community_majority_topic: Dict[str, int]
     contingency: Dict[str, Dict[str, int]]
     disagreements: List[str]
+
+
+class DisagreementGroup(BaseModel):
+    kind: str
+    topic: int
+    community: int
+    majority_topic: int
+    home_community: int
+    topic_size: int
+    docs: List[str]
+
+
+class DisagreementDetail(BaseModel):
+    kind: str
+    topic: int
+    community: int
+    majority_topic: int
+    home_community: int
+    topic_in_community: int
+    topic_size: int
+    neighbors: Dict[str, int]
+    similarity: Dict[str, float]
+
+
+class DisagreementAnalysis(BaseModel):
+    counts: Dict[str, int]
+    groups: List[DisagreementGroup]
+    docs: Dict[str, DisagreementDetail]

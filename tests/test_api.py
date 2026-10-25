@@ -80,10 +80,21 @@ def test_export_and_comparison(client):
     assert len(export["nodes"]) == 48
     node = export["nodes"][0]
     assert 0 <= node["x"] <= 1 and 0 <= node["y"] <= 1
-    assert {"topic", "community", "disagrees"} <= node.keys()
+    assert {"topic", "community", "disagrees", "kind"} <= node.keys()
+    assert all(n["disagrees"] == (n["kind"] != "agree") for n in export["nodes"])
     comparison = client.get("/analysis/comparison").json()
     assert -1 <= comparison["ari"] <= 1
     assert len(comparison["disagreements"]) == round(comparison["disagreement_rate"] * 48)
+
+
+def test_disagreement_analysis(client):
+    analysis = client.get("/analysis/disagreements").json()
+    flagged = client.get("/analysis/comparison").json()["disagreements"]
+    assert sum(analysis["counts"].values()) == len(flagged)
+    assert set(analysis["docs"]) == set(flagged)
+    assert sum(len(g["docs"]) for g in analysis["groups"]) == len(flagged)
+    doc = client.get("/documents/patent-0").json()
+    assert sum(doc["passage_topics"].values()) >= 1
 
 
 def test_explorer_served(client):

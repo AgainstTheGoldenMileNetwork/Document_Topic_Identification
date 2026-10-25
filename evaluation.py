@@ -107,6 +107,106 @@ def compare_partitions(doc_ids: List[str], topics: List[int], communities: List[
     }
 
 
+def _unit(v: np.ndarray) -> np.ndarray:
+    return v / max(float(np.linalg.norm(v)), 1e-12)
+
+
+def explain_disagreements(
+    doc_ids: List[str], topics: List[int], communities: List[int], embeddings: np.ndarray, k: int = 10
+) -> Dict[str, Any]:
+    """
+    Sort the documents compare_partitions flags as disagreeing into three kinds,
+    because "topic differs from its community's majority" lumps together very
+    different situations:
+
+    - lone: the only document of its topic in its community. These are the
+      individual cases the two methods really place differently.
+    - merged: most of the document's topic sits in this same community, which
+      it shares with a larger topic. Louvain drew one group where BERTopic drew
+      two; nothing about the document itself is unusual.
+    - split: a sub-group of the topic (two or more documents) sits in a
+      community dominated by another topic, apart from the rest of its topic.
+
+    Each document also gets evidence for which method's placement it fits: how
+    its k nearest neighbours divide between its topic and its community, and its
+    similarity to the rest of its own topic versus the community's majority topic.
+    """
+    topics, communities = [int(t) for t in topics], [int(c) for c in communities]
+    base = compare_partitions(doc_ids, topics, communities)
+    majority = {int(c): t for c, t in base["community_majority_topic"].items()}
+    topic_arr, comm_arr = np.asarray(topics), np.asarray(communities)
+    pair_counts = Counter(zip(topics, communities))
+    topic_sizes = Counter(topics)
+    home = {t: Counter(comm_arr[topic_arr == t].tolist()).most_common(1)[0][0] for t in topic_sizes}
+    sums = {t: embeddings[topic_arr == t].sum(axis=0) for t in topic_sizes}
+    pos = {did: i for i, did in enumerate(doc_ids)}
+
+    details: Dict[str, Dict[str, Any]] = {}
+    groups: Dict[tuple, List[str]] = {}
+    for did in base["disagreements"]:
+        i = pos[did]
+        t, c = topics[i], communities[i]
+        m = majority[c]
+        n_here = pair_counts[(t, c)]
+        kind = "lone" if n_here == 1 else "merged" if home[t] == c else "split"
+
+        sims = embeddings @ embeddings[i]
+        sims[i] = -np.inf
+        nn = np.argsort(-sims)[:k]
+        # Leave the document out of its own topic's centroid so it isn't compared with itself.
+        own = _unit(sums[t] - embeddings[i]) if topic_sizes[t] > 1 else np.zeros_like(embeddings[i])
+        details[did] = {
+            "kind": kind,
+            "topic": t,
+            "community": c,
+            "majority_topic": m,
+            "home_community": home[t],
+            "topic_in_community": n_here,
+            "topic_size": topic_sizes[t],
+            "neighbors": {
+                "k": int(len(nn)),
+                "same_topic": int((topic_arr[nn] == t).sum()),
+                "same_community": int((comm_arr[nn] == c).sum()),
+                "majority_topic": int((topic_arr[nn] == m).sum()),
+            },
+            "similarity": {
+                "own_topic": round(float(embeddings[i] @ own), 4),
+                "majority_topic": round(float(embeddings[i] @ _unit(sums[m])), 4),
+            },
+        }
+        groups.setdefault((kind, t, c), []).append(did)
+
+    kind_order = {"lone": 0, "split": 1, "merged": 2}
+    group_list = [
+        {"kind": kind, "topic": t, "community": c, "majority_topic": majority[c], "home_community": home[t],
+         "topic_size": topic_sizes[t], "docs": ids}
+        for (kind, t, c), ids in sorted(groups.items(), key=lambda g: (kind_order[g[0][0]], -len(g[1]), g[0][1:]))
+    ]
+    return {
+        "counts": {kind: sum(len(g["docs"]) for g in group_list if g["kind"] == kind) for kind in kind_order},
+        "groups": group_list,
+        "docs": details,
+    }
+
+
+def passage_topic_mix(
+    embeddings: np.ndarray, topics: List[int], chunk_embeddings: np.ndarray, chunk_doc_idx: np.ndarray
+) -> List[Dict[int, int]]:
+    """
+    For each document, how many of its passages (embedding chunks) sit closest
+    to each topic's centroid. A case whose passages divide between topics
+    covers more than one area of law.
+    """
+    topic_arr = np.asarray(topics)
+    topic_list = sorted(set(topics))
+    centroids = np.stack([_unit(embeddings[topic_arr == t].mean(axis=0)) for t in topic_list])
+    nearest = np.asarray(topic_list)[np.argmax(chunk_embeddings @ centroids.T, axis=1)]
+    mixes: List[Dict[int, int]] = [{} for _ in range(len(embeddings))]
+    for di, t in zip(np.asarray(chunk_doc_idx).tolist(), nearest.tolist()):
+        mixes[di][t] = mixes[di].get(t, 0) + 1
+    return [dict(sorted(m.items(), key=lambda kv: -kv[1])) for m in mixes]
+
+
 def threshold_sweep(
     doc_ids: List[str],
     embeddings: np.ndarray,

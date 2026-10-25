@@ -12,6 +12,7 @@ from models import (
     ClusterSummary,
     CommunityDetail,
     Comparison,
+    DisagreementAnalysis,
     Document,
     GraphInfo,
     SearchResult,
@@ -138,6 +139,7 @@ def get_document(doc_id: str):
         text=d.get("text"),
         cluster_id=d.get("cluster_id"),
         community_id=d.get("community_id"),
+        passage_topics=d.get("passage_topics", {}),
     )
 
 
@@ -210,7 +212,7 @@ def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
     coords = idx.coords
     span = (coords.max(axis=0) - coords.min(axis=0)).clip(min=1e-9)
     normed = (coords - coords.min(axis=0)) / span
-    disagree = set(idx.comparison["disagreements"])
+    kinds = {did: info["kind"] for did, info in idx.disagreements["docs"].items()}
     return {
         "nodes": [
             {
@@ -221,7 +223,8 @@ def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
                 "y": round(float(normed[i, 1]), 4),
                 "topic": d["cluster_id"],
                 "community": d["community_id"],
-                "disagrees": str(d["id"]) in disagree,
+                "disagrees": str(d["id"]) in kinds,
+                "kind": kinds.get(str(d["id"]), "agree"),
             }
             for i, d in enumerate(idx.docs)
         ],
@@ -235,6 +238,7 @@ def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
         },
         "graph": idx.graph.get_info(),
         "comparison": {k: v for k, v in idx.comparison.items() if k != "disagreements"},
+        "disagreements": idx.disagreements,
         "settings": {
             "embed_model": idx.settings.embed_model,
             "embed_strategy": idx.settings.embed_strategy,
@@ -251,3 +255,12 @@ def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
 def comparison():
     """How closely BERTopic topics and Louvain communities agree, and where they don't."""
     return Comparison(**index().comparison)
+
+
+@app.get("/analysis/disagreements", response_model=DisagreementAnalysis)
+def disagreements():
+    """
+    Each disagreeing case sorted into lone / split / merged, with the evidence:
+    nearest-neighbour votes and similarity to its topic vs its community's majority topic.
+    """
+    return DisagreementAnalysis(**index().disagreements)
