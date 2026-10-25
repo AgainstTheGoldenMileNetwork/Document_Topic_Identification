@@ -1,6 +1,7 @@
 """
 Builds everything the API serves — embeddings, BERTopic topics, the
-similarity graph, the 2-D map and the comparison between the two groupings —
+similarity graph, the 2-D map, the comparison between the two groupings and
+an explanation of each case where they disagree —
 in one place, so the API, evaluate.py and the tests share the same code path.
 
 Embeddings and topic results are cached under settings.cache_dir, so only the
@@ -17,7 +18,7 @@ import numpy as np
 
 from config import Settings
 from data_loader import ChunkIndex, Embedder, load_docs, load_or_embed
-from evaluation import compare_partitions
+from evaluation import compare_partitions, explain_disagreements, passage_topic_mix
 from labeling import generate_labels
 from similarity import SimilarityGraph
 from topic_modeling import project_2d, run_topic_modeling
@@ -36,6 +37,7 @@ class CorpusIndex:
     graph: SimilarityGraph
     coords: np.ndarray
     comparison: Dict[str, Any]
+    disagreements: Dict[str, Any]
     outlier_fraction: float
     embedder: Embedder
     settings: Settings
@@ -125,6 +127,9 @@ def build_index(settings: Settings, embedder: Embedder | None = None) -> CorpusI
     for doc, cid in zip(docs, community_ids):
         doc["community_id"] = cid
     comparison = compare_partitions(doc_ids, topic_ids, community_ids)
+    disagreements = explain_disagreements(doc_ids, topic_ids, community_ids, embeddings)
+    for doc, mix in zip(docs, passage_topic_mix(embeddings, topic_ids, chunks.embeddings, chunks.doc_idx)):
+        doc["passage_topics"] = mix
 
     return CorpusIndex(
         docs=docs,
@@ -134,6 +139,7 @@ def build_index(settings: Settings, embedder: Embedder | None = None) -> CorpusI
         graph=graph,
         coords=np.asarray(coords),
         comparison=comparison,
+        disagreements=disagreements,
         outlier_fraction=outlier_fraction,
         embedder=embedder,
         settings=settings,
