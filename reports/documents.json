@@ -4,7 +4,7 @@
     "model": "all-MiniLM-L6-v2",
     "strategy": "truncated",
     "chunks": 100,
-    "embed_seconds": 7.4,
+    "embed_seconds": 0.0,
     "self_retrieval": {
       "queries": 100,
       "mrr": 0.7399016343825667,
@@ -37,28 +37,19 @@
       }
     },
     "graph": {
+      "knn": 3,
       "threshold": 0.5298,
-      "communities": 19,
-      "modularity": 0.47
+      "communities": 7,
+      "modularity": 0.4764
     },
     "agreement": {
-      "ari": 0.2697,
-      "nmi": 0.4929,
-      "disagreement_rate": 0.06
+      "ari": 0.1762,
+      "nmi": 0.411,
+      "disagreement_rate": 0.13
     },
     "threshold_sweep": [
       {
-        "percentile": 80,
-        "threshold": 0.4439,
-        "edges": 990,
-        "isolated_docs": 2,
-        "communities": 6,
-        "largest_community_share": 0.34,
-        "modularity": 0.2407,
-        "ari_vs_topics": 0.2074,
-        "nmi_vs_topics": 0.3882
-      },
-      {
+        "knn": 0,
         "percentile": 85,
         "threshold": 0.4647,
         "edges": 743,
@@ -70,6 +61,7 @@
         "nmi_vs_topics": 0.4769
       },
       {
+        "knn": 0,
         "percentile": 90,
         "threshold": 0.4915,
         "edges": 495,
@@ -81,6 +73,7 @@
         "nmi_vs_topics": 0.4966
       },
       {
+        "knn": 0,
         "percentile": 93,
         "threshold": 0.5123,
         "edges": 347,
@@ -92,6 +85,7 @@
         "nmi_vs_topics": 0.4411
       },
       {
+        "knn": 0,
         "percentile": 95,
         "threshold": 0.5298,
         "edges": 248,
@@ -103,6 +97,7 @@
         "nmi_vs_topics": 0.4929
       },
       {
+        "knn": 0,
         "percentile": 97,
         "threshold": 0.5582,
         "edges": 149,
@@ -114,17 +109,7 @@
         "nmi_vs_topics": 0.4162
       },
       {
-        "percentile": 98,
-        "threshold": 0.578,
-        "edges": 99,
-        "isolated_docs": 39,
-        "communities": 48,
-        "largest_community_share": 0.16,
-        "modularity": 0.5708,
-        "ari_vs_topics": 0.0778,
-        "nmi_vs_topics": 0.3988
-      },
-      {
+        "knn": 0,
         "percentile": 99,
         "threshold": 0.6059,
         "edges": 50,
@@ -134,6 +119,150 @@
         "modularity": 0.6506,
         "ari_vs_topics": 0.035,
         "nmi_vs_topics": 0.3382
+      },
+      {
+        "knn": 3,
+        "percentile": 85,
+        "threshold": 0.4647,
+        "edges": 763,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.29,
+        "modularity": 0.2977,
+        "ari_vs_topics": 0.1774,
+        "nmi_vs_topics": 0.3839
+      },
+      {
+        "knn": 3,
+        "percentile": 90,
+        "threshold": 0.4915,
+        "edges": 537,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.25,
+        "modularity": 0.3572,
+        "ari_vs_topics": 0.1984,
+        "nmi_vs_topics": 0.5164
+      },
+      {
+        "knn": 3,
+        "percentile": 93,
+        "threshold": 0.5123,
+        "edges": 407,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.27,
+        "modularity": 0.4281,
+        "ari_vs_topics": 0.199,
+        "nmi_vs_topics": 0.4605
+      },
+      {
+        "knn": 3,
+        "percentile": 95,
+        "threshold": 0.5298,
+        "edges": 328,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.29,
+        "modularity": 0.4764,
+        "ari_vs_topics": 0.1762,
+        "nmi_vs_topics": 0.411
+      },
+      {
+        "knn": 3,
+        "percentile": 97,
+        "threshold": 0.5582,
+        "edges": 262,
+        "isolated_docs": 0,
+        "communities": 8,
+        "largest_community_share": 0.2,
+        "modularity": 0.5337,
+        "ari_vs_topics": 0.1604,
+        "nmi_vs_topics": 0.4654
+      },
+      {
+        "knn": 3,
+        "percentile": 99,
+        "threshold": 0.6059,
+        "edges": 232,
+        "isolated_docs": 0,
+        "communities": 8,
+        "largest_community_share": 0.22,
+        "modularity": 0.5887,
+        "ari_vs_topics": 0.1321,
+        "nmi_vs_topics": 0.4343
+      },
+      {
+        "knn": 5,
+        "percentile": 85,
+        "threshold": 0.4647,
+        "edges": 797,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.34,
+        "modularity": 0.3021,
+        "ari_vs_topics": 0.2585,
+        "nmi_vs_topics": 0.5173
+      },
+      {
+        "knn": 5,
+        "percentile": 90,
+        "threshold": 0.4915,
+        "edges": 597,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.38,
+        "modularity": 0.3596,
+        "ari_vs_topics": 0.316,
+        "nmi_vs_topics": 0.5633
+      },
+      {
+        "knn": 5,
+        "percentile": 93,
+        "threshold": 0.5123,
+        "edges": 483,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.28,
+        "modularity": 0.4277,
+        "ari_vs_topics": 0.2053,
+        "nmi_vs_topics": 0.5167
+      },
+      {
+        "knn": 5,
+        "percentile": 95,
+        "threshold": 0.5298,
+        "edges": 423,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.3,
+        "modularity": 0.4634,
+        "ari_vs_topics": 0.2179,
+        "nmi_vs_topics": 0.4903
+      },
+      {
+        "knn": 5,
+        "percentile": 97,
+        "threshold": 0.5582,
+        "edges": 381,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.27,
+        "modularity": 0.4665,
+        "ari_vs_topics": 0.2238,
+        "nmi_vs_topics": 0.5296
+      },
+      {
+        "knn": 5,
+        "percentile": 99,
+        "threshold": 0.6059,
+        "edges": 372,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.26,
+        "modularity": 0.476,
+        "ari_vs_topics": 0.1954,
+        "nmi_vs_topics": 0.4717
       }
     ]
   },
@@ -185,28 +314,19 @@
       }
     },
     "graph": {
+      "knn": 3,
       "threshold": 0.7102,
-      "communities": 42,
-      "modularity": 0.3674
+      "communities": 7,
+      "modularity": 0.4346
     },
     "agreement": {
-      "ari": 0.3192,
-      "nmi": 0.6496,
-      "disagreement_rate": 0.18
+      "ari": 0.6006,
+      "nmi": 0.7107,
+      "disagreement_rate": 0.3
     },
     "threshold_sweep": [
       {
-        "percentile": 80,
-        "threshold": 0.6091,
-        "edges": 990,
-        "isolated_docs": 7,
-        "communities": 11,
-        "largest_community_share": 0.3,
-        "modularity": 0.2015,
-        "ari_vs_topics": 0.4618,
-        "nmi_vs_topics": 0.6125
-      },
-      {
+        "knn": 0,
         "percentile": 85,
         "threshold": 0.6329,
         "edges": 743,
@@ -218,6 +338,7 @@
         "nmi_vs_topics": 0.5673
       },
       {
+        "knn": 0,
         "percentile": 90,
         "threshold": 0.6651,
         "edges": 495,
@@ -229,6 +350,7 @@
         "nmi_vs_topics": 0.6447
       },
       {
+        "knn": 0,
         "percentile": 93,
         "threshold": 0.6879,
         "edges": 347,
@@ -240,6 +362,7 @@
         "nmi_vs_topics": 0.6649
       },
       {
+        "knn": 0,
         "percentile": 95,
         "threshold": 0.7102,
         "edges": 248,
@@ -251,6 +374,7 @@
         "nmi_vs_topics": 0.6496
       },
       {
+        "knn": 0,
         "percentile": 97,
         "threshold": 0.7322,
         "edges": 149,
@@ -262,17 +386,7 @@
         "nmi_vs_topics": 0.5833
       },
       {
-        "percentile": 98,
-        "threshold": 0.7505,
-        "edges": 99,
-        "isolated_docs": 46,
-        "communities": 54,
-        "largest_community_share": 0.21,
-        "modularity": 0.4925,
-        "ari_vs_topics": 0.2281,
-        "nmi_vs_topics": 0.6205
-      },
-      {
+        "knn": 0,
         "percentile": 99,
         "threshold": 0.7792,
         "edges": 50,
@@ -282,6 +396,150 @@
         "modularity": 0.6084,
         "ari_vs_topics": 0.1393,
         "nmi_vs_topics": 0.6254
+      },
+      {
+        "knn": 3,
+        "percentile": 85,
+        "threshold": 0.6329,
+        "edges": 791,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.33,
+        "modularity": 0.2507,
+        "ari_vs_topics": 0.3873,
+        "nmi_vs_topics": 0.6037
+      },
+      {
+        "knn": 3,
+        "percentile": 90,
+        "threshold": 0.6651,
+        "edges": 575,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.3,
+        "modularity": 0.303,
+        "ari_vs_topics": 0.5022,
+        "nmi_vs_topics": 0.67
+      },
+      {
+        "knn": 3,
+        "percentile": 93,
+        "threshold": 0.6879,
+        "edges": 457,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.25,
+        "modularity": 0.3733,
+        "ari_vs_topics": 0.49,
+        "nmi_vs_topics": 0.6494
+      },
+      {
+        "knn": 3,
+        "percentile": 95,
+        "threshold": 0.7102,
+        "edges": 373,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.25,
+        "modularity": 0.4346,
+        "ari_vs_topics": 0.6006,
+        "nmi_vs_topics": 0.7107
+      },
+      {
+        "knn": 3,
+        "percentile": 97,
+        "threshold": 0.7322,
+        "edges": 294,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.23,
+        "modularity": 0.506,
+        "ari_vs_topics": 0.5464,
+        "nmi_vs_topics": 0.6844
+      },
+      {
+        "knn": 3,
+        "percentile": 99,
+        "threshold": 0.7792,
+        "edges": 252,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.21,
+        "modularity": 0.5762,
+        "ari_vs_topics": 0.5383,
+        "nmi_vs_topics": 0.6877
+      },
+      {
+        "knn": 5,
+        "percentile": 85,
+        "threshold": 0.6329,
+        "edges": 848,
+        "isolated_docs": 0,
+        "communities": 4,
+        "largest_community_share": 0.4,
+        "modularity": 0.2592,
+        "ari_vs_topics": 0.327,
+        "nmi_vs_topics": 0.5224
+      },
+      {
+        "knn": 5,
+        "percentile": 90,
+        "threshold": 0.6651,
+        "edges": 659,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.25,
+        "modularity": 0.3116,
+        "ari_vs_topics": 0.594,
+        "nmi_vs_topics": 0.7031
+      },
+      {
+        "knn": 5,
+        "percentile": 93,
+        "threshold": 0.6879,
+        "edges": 557,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.25,
+        "modularity": 0.371,
+        "ari_vs_topics": 0.5924,
+        "nmi_vs_topics": 0.7335
+      },
+      {
+        "knn": 5,
+        "percentile": 95,
+        "threshold": 0.7102,
+        "edges": 485,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.25,
+        "modularity": 0.4211,
+        "ari_vs_topics": 0.5924,
+        "nmi_vs_topics": 0.7335
+      },
+      {
+        "knn": 5,
+        "percentile": 97,
+        "threshold": 0.7322,
+        "edges": 421,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.25,
+        "modularity": 0.4715,
+        "ari_vs_topics": 0.5679,
+        "nmi_vs_topics": 0.7142
+      },
+      {
+        "knn": 5,
+        "percentile": 99,
+        "threshold": 0.7792,
+        "edges": 405,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.22,
+        "modularity": 0.4918,
+        "ari_vs_topics": 0.5915,
+        "nmi_vs_topics": 0.7133
       }
     ]
   },
@@ -290,7 +548,7 @@
     "model": "BAAI/bge-small-en-v1.5",
     "strategy": "chunked",
     "chunks": 743,
-    "embed_seconds": 14.7,
+    "embed_seconds": 0.0,
     "self_retrieval": {
       "queries": 100,
       "mrr": 0.8893872285659815,
@@ -329,28 +587,19 @@
       }
     },
     "graph": {
+      "knn": 3,
       "threshold": 0.8826,
-      "communities": 51,
-      "modularity": 0.2651
+      "communities": 5,
+      "modularity": 0.3348
     },
     "agreement": {
-      "ari": 0.2101,
-      "nmi": 0.5741,
-      "disagreement_rate": 0.13
+      "ari": 0.2285,
+      "nmi": 0.4375,
+      "disagreement_rate": 0.42
     },
     "threshold_sweep": [
       {
-        "percentile": 80,
-        "threshold": 0.8412,
-        "edges": 990,
-        "isolated_docs": 9,
-        "communities": 15,
-        "largest_community_share": 0.3,
-        "modularity": 0.1555,
-        "ari_vs_topics": 0.415,
-        "nmi_vs_topics": 0.5483
-      },
-      {
+        "knn": 0,
         "percentile": 85,
         "threshold": 0.8509,
         "edges": 743,
@@ -362,6 +611,7 @@
         "nmi_vs_topics": 0.5904
       },
       {
+        "knn": 0,
         "percentile": 90,
         "threshold": 0.8644,
         "edges": 495,
@@ -373,6 +623,7 @@
         "nmi_vs_topics": 0.5727
       },
       {
+        "knn": 0,
         "percentile": 93,
         "threshold": 0.8753,
         "edges": 347,
@@ -384,6 +635,7 @@
         "nmi_vs_topics": 0.5682
       },
       {
+        "knn": 0,
         "percentile": 95,
         "threshold": 0.8826,
         "edges": 248,
@@ -395,6 +647,7 @@
         "nmi_vs_topics": 0.5741
       },
       {
+        "knn": 0,
         "percentile": 97,
         "threshold": 0.8922,
         "edges": 149,
@@ -406,17 +659,7 @@
         "nmi_vs_topics": 0.5524
       },
       {
-        "percentile": 98,
-        "threshold": 0.8979,
-        "edges": 99,
-        "isolated_docs": 61,
-        "communities": 65,
-        "largest_community_share": 0.16,
-        "modularity": 0.3588,
-        "ari_vs_topics": 0.1415,
-        "nmi_vs_topics": 0.5563
-      },
-      {
+        "knn": 0,
         "percentile": 99,
         "threshold": 0.9092,
         "edges": 50,
@@ -426,6 +669,150 @@
         "modularity": 0.5648,
         "ari_vs_topics": 0.0988,
         "nmi_vs_topics": 0.5666
+      },
+      {
+        "knn": 3,
+        "percentile": 85,
+        "threshold": 0.8509,
+        "edges": 820,
+        "isolated_docs": 0,
+        "communities": 4,
+        "largest_community_share": 0.33,
+        "modularity": 0.1819,
+        "ari_vs_topics": 0.4106,
+        "nmi_vs_topics": 0.469
+      },
+      {
+        "knn": 3,
+        "percentile": 90,
+        "threshold": 0.8644,
+        "edges": 602,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.33,
+        "modularity": 0.2485,
+        "ari_vs_topics": 0.2782,
+        "nmi_vs_topics": 0.4878
+      },
+      {
+        "knn": 3,
+        "percentile": 93,
+        "threshold": 0.8753,
+        "edges": 475,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.26,
+        "modularity": 0.2747,
+        "ari_vs_topics": 0.2531,
+        "nmi_vs_topics": 0.4252
+      },
+      {
+        "knn": 3,
+        "percentile": 95,
+        "threshold": 0.8826,
+        "edges": 396,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.39,
+        "modularity": 0.3348,
+        "ari_vs_topics": 0.2285,
+        "nmi_vs_topics": 0.4375
+      },
+      {
+        "knn": 3,
+        "percentile": 97,
+        "threshold": 0.8922,
+        "edges": 325,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.31,
+        "modularity": 0.4246,
+        "ari_vs_topics": 0.2972,
+        "nmi_vs_topics": 0.5233
+      },
+      {
+        "knn": 3,
+        "percentile": 99,
+        "threshold": 0.9092,
+        "edges": 264,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.31,
+        "modularity": 0.5114,
+        "ari_vs_topics": 0.3393,
+        "nmi_vs_topics": 0.527
+      },
+      {
+        "knn": 5,
+        "percentile": 85,
+        "threshold": 0.8509,
+        "edges": 895,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.32,
+        "modularity": 0.2026,
+        "ari_vs_topics": 0.5445,
+        "nmi_vs_topics": 0.6555
+      },
+      {
+        "knn": 5,
+        "percentile": 90,
+        "threshold": 0.8644,
+        "edges": 699,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.25,
+        "modularity": 0.2544,
+        "ari_vs_topics": 0.3693,
+        "nmi_vs_topics": 0.5869
+      },
+      {
+        "knn": 5,
+        "percentile": 93,
+        "threshold": 0.8753,
+        "edges": 590,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.35,
+        "modularity": 0.3024,
+        "ari_vs_topics": 0.2869,
+        "nmi_vs_topics": 0.5157
+      },
+      {
+        "knn": 5,
+        "percentile": 95,
+        "threshold": 0.8826,
+        "edges": 521,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.35,
+        "modularity": 0.3263,
+        "ari_vs_topics": 0.2354,
+        "nmi_vs_topics": 0.4639
+      },
+      {
+        "knn": 5,
+        "percentile": 97,
+        "threshold": 0.8922,
+        "edges": 468,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.37,
+        "modularity": 0.3634,
+        "ari_vs_topics": 0.5494,
+        "nmi_vs_topics": 0.6407
+      },
+      {
+        "knn": 5,
+        "percentile": 99,
+        "threshold": 0.9092,
+        "edges": 431,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.33,
+        "modularity": 0.4303,
+        "ari_vs_topics": 0.5271,
+        "nmi_vs_topics": 0.6021
       }
     ]
   },
@@ -434,7 +821,7 @@
     "model": "all-mpnet-base-v2",
     "strategy": "chunked",
     "chunks": 1003,
-    "embed_seconds": 59.1,
+    "embed_seconds": 0.0,
     "self_retrieval": {
       "queries": 100,
       "mrr": 0.9041699134199134,
@@ -475,28 +862,19 @@
       }
     },
     "graph": {
+      "knn": 3,
       "threshold": 0.7526,
-      "communities": 35,
-      "modularity": 0.43
+      "communities": 6,
+      "modularity": 0.4739
     },
     "agreement": {
-      "ari": 0.2906,
-      "nmi": 0.5724,
-      "disagreement_rate": 0.2
+      "ari": 0.2603,
+      "nmi": 0.5705,
+      "disagreement_rate": 0.35
     },
     "threshold_sweep": [
       {
-        "percentile": 80,
-        "threshold": 0.6682,
-        "edges": 990,
-        "isolated_docs": 7,
-        "communities": 12,
-        "largest_community_share": 0.28,
-        "modularity": 0.2096,
-        "ari_vs_topics": 0.3246,
-        "nmi_vs_topics": 0.4936
-      },
-      {
+        "knn": 0,
         "percentile": 85,
         "threshold": 0.6884,
         "edges": 743,
@@ -508,6 +886,7 @@
         "nmi_vs_topics": 0.4972
       },
       {
+        "knn": 0,
         "percentile": 90,
         "threshold": 0.7149,
         "edges": 495,
@@ -519,6 +898,7 @@
         "nmi_vs_topics": 0.5836
       },
       {
+        "knn": 0,
         "percentile": 93,
         "threshold": 0.737,
         "edges": 347,
@@ -530,6 +910,7 @@
         "nmi_vs_topics": 0.5458
       },
       {
+        "knn": 0,
         "percentile": 95,
         "threshold": 0.7526,
         "edges": 248,
@@ -541,6 +922,7 @@
         "nmi_vs_topics": 0.5724
       },
       {
+        "knn": 0,
         "percentile": 97,
         "threshold": 0.7728,
         "edges": 149,
@@ -552,17 +934,7 @@
         "nmi_vs_topics": 0.5642
       },
       {
-        "percentile": 98,
-        "threshold": 0.7888,
-        "edges": 99,
-        "isolated_docs": 53,
-        "communities": 62,
-        "largest_community_share": 0.13,
-        "modularity": 0.496,
-        "ari_vs_topics": 0.116,
-        "nmi_vs_topics": 0.564
-      },
-      {
+        "knn": 0,
         "percentile": 99,
         "threshold": 0.8162,
         "edges": 50,
@@ -572,6 +944,150 @@
         "modularity": 0.5035,
         "ari_vs_topics": 0.1039,
         "nmi_vs_topics": 0.5644
+      },
+      {
+        "knn": 3,
+        "percentile": 85,
+        "threshold": 0.6884,
+        "edges": 780,
+        "isolated_docs": 0,
+        "communities": 4,
+        "largest_community_share": 0.43,
+        "modularity": 0.2625,
+        "ari_vs_topics": 0.2649,
+        "nmi_vs_topics": 0.4747
+      },
+      {
+        "knn": 3,
+        "percentile": 90,
+        "threshold": 0.7149,
+        "edges": 560,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.34,
+        "modularity": 0.34,
+        "ari_vs_topics": 0.3039,
+        "nmi_vs_topics": 0.5536
+      },
+      {
+        "knn": 3,
+        "percentile": 93,
+        "threshold": 0.737,
+        "edges": 431,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.35,
+        "modularity": 0.4001,
+        "ari_vs_topics": 0.2962,
+        "nmi_vs_topics": 0.5838
+      },
+      {
+        "knn": 3,
+        "percentile": 95,
+        "threshold": 0.7526,
+        "edges": 360,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.33,
+        "modularity": 0.4739,
+        "ari_vs_topics": 0.2603,
+        "nmi_vs_topics": 0.5705
+      },
+      {
+        "knn": 3,
+        "percentile": 97,
+        "threshold": 0.7728,
+        "edges": 295,
+        "isolated_docs": 0,
+        "communities": 7,
+        "largest_community_share": 0.36,
+        "modularity": 0.5352,
+        "ari_vs_topics": 0.2568,
+        "nmi_vs_topics": 0.6051
+      },
+      {
+        "knn": 3,
+        "percentile": 99,
+        "threshold": 0.8162,
+        "edges": 248,
+        "isolated_docs": 0,
+        "communities": 8,
+        "largest_community_share": 0.19,
+        "modularity": 0.603,
+        "ari_vs_topics": 0.3441,
+        "nmi_vs_topics": 0.6202
+      },
+      {
+        "knn": 5,
+        "percentile": 85,
+        "threshold": 0.6884,
+        "edges": 826,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.37,
+        "modularity": 0.2788,
+        "ari_vs_topics": 0.5946,
+        "nmi_vs_topics": 0.7051
+      },
+      {
+        "knn": 5,
+        "percentile": 90,
+        "threshold": 0.7149,
+        "edges": 637,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.39,
+        "modularity": 0.3549,
+        "ari_vs_topics": 0.6846,
+        "nmi_vs_topics": 0.7618
+      },
+      {
+        "knn": 5,
+        "percentile": 93,
+        "threshold": 0.737,
+        "edges": 524,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.32,
+        "modularity": 0.4202,
+        "ari_vs_topics": 0.4532,
+        "nmi_vs_topics": 0.6652
+      },
+      {
+        "knn": 5,
+        "percentile": 95,
+        "threshold": 0.7526,
+        "edges": 468,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.32,
+        "modularity": 0.468,
+        "ari_vs_topics": 0.3598,
+        "nmi_vs_topics": 0.6377
+      },
+      {
+        "knn": 5,
+        "percentile": 97,
+        "threshold": 0.7728,
+        "edges": 422,
+        "isolated_docs": 0,
+        "communities": 6,
+        "largest_community_share": 0.32,
+        "modularity": 0.4906,
+        "ari_vs_topics": 0.4091,
+        "nmi_vs_topics": 0.6709
+      },
+      {
+        "knn": 5,
+        "percentile": 99,
+        "threshold": 0.8162,
+        "edges": 397,
+        "isolated_docs": 0,
+        "communities": 5,
+        "largest_community_share": 0.37,
+        "modularity": 0.519,
+        "ari_vs_topics": 0.6158,
+        "nmi_vs_topics": 0.6752
       }
     ]
   }
