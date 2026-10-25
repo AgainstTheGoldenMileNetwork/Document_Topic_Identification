@@ -177,6 +177,19 @@
   .mixbar div { border-radius: 3px; min-width: 3px; }
   .mixkey { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-secondary); }
 
+  table.stats { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0 2px; }
+  table.stats th, table.stats td { padding: 4px 4px; border-top: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; }
+  table.stats th { color: var(--text-muted); font-weight: 500; font-size: 11.5px; }
+  table.stats td:first-child, table.stats th:first-child { text-align: left; }
+  table.stats tr.hl td { font-weight: 650; }
+  .finding { font-size: 13px; margin: 10px 0 4px; }
+  .finding b { font-weight: 650; }
+  .cite-edge-key { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; }
+  .cite-edge-key i { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--text-secondary); vertical-align: middle; margin-right: 5px; }
+  .cite-edge-key i.faint { border-top-style: dotted; }
+  #axis { display: none; }
+  body[data-mode="citations"] #axis { display: inline-flex; }
+
   #tooltip {
     position: fixed; pointer-events: none; z-index: 10; max-width: 300px;
     background: var(--surface-1); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12);
@@ -206,8 +219,13 @@
     <button type="button" data-mode="topic" aria-pressed="true">Topic</button>
     <button type="button" data-mode="community" aria-pressed="false">Community</button>
     <button type="button" data-mode="agreement" aria-pressed="false">Disagreements</button>
+    <button type="button" data-mode="citations" aria-pressed="false">Citations</button>
   </div>
-  <label class="check"><input type="checkbox" id="edges" checked> Similarity edges</label>
+  <div class="segmented" id="axis" role="group" aria-label="Color cases by">
+    <button type="button" data-axis="question" aria-pressed="true">Legal question</button>
+    <button type="button" data-axis="subject" aria-pressed="false">Subject</button>
+  </div>
+  <label class="check"><input type="checkbox" id="edges" checked> <span id="edges-label">Similarity edges</span></label>
   <form class="search" id="search-form" role="search">
     <input id="search" type="search" placeholder="Describe a case, e.g. ship cargo damaged in a storm" aria-label="Search cases">
     <button type="submit">Search</button>
@@ -246,9 +264,23 @@
       blurb: "Most of the topic is in this community, but it shares the community with a larger topic. The graph drew one group where BERTopic drew two, so nothing about these cases is unusual." },
   };
   const KIND_ORDER = ["lone", "split", "merged"];
+  const MODES = ["topic", "community", "agreement", "citations"];
+  // Tag categories come from the Claude tagging run (data/legal_tags_*.jsonl).
+  const CAT_NAMES = {
+    "jurisdiction-procedure": "Jurisdiction & procedure", "constitutional-structure": "Constitution: federal structure",
+    "constitutional-rights": "Constitution: rights", "statutory-interpretation": "Statutory interpretation",
+    "contracts-commercial": "Contracts & commercial", "property-law": "Property law", "torts-liability": "Torts & liability",
+    "criminal-law": "Criminal law", "tax-law": "Tax law", "admiralty": "Admiralty", "patent-law": "Patent law",
+    "equity-remedies": "Equity & remedies", "business-contracts": "Business & contracts", "land-property": "Land & property",
+    "public-finance": "Public finance", "transport-shipping": "Transport & shipping", "patents-ip": "Patents & IP",
+    "crime": "Crime", "civil-liberties": "Civil liberties", "labor-employment": "Labor & employment",
+    "immigration-citizenship": "Immigration & citizenship", "regulation-utilities": "Regulation & utilities",
+    "government-structure": "Government structure", "family-estates-injury": "Family, estates & injury", "other": "Other",
+  };
+  const catName = (c) => (c == null ? "Untagged" : CAT_NAMES[c] ?? c);
 
   const state = {
-    data: null, mode: "topic", showEdges: true, isolate: null, group: null,
+    data: null, mode: "topic", axis: "question", showEdges: true, isolate: null, group: null,
     hover: null, selected: null, neighbors: [], hits: new Set(), searchResults: null,
     transform: d3.zoomIdentity, width: 0, height: 0,
   };
@@ -289,26 +321,33 @@
     const commSizes = d3.rollup(data.nodes, (v) => v.length, (d) => d.community);
     const commOrder = [...commSizes.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([id]) => id);
     const commSlot = new Map(commOrder.slice(0, SLOTS).filter((id) => commSizes.get(id) > 1).map((id, i) => [id, i]));
-    return { topicOrder, topicSlot, commOrder, commSizes, commSlot };
+    const tagSlots = (field) => {
+      const sizes = d3.rollup(data.nodes.filter((n) => n[field] != null), (v) => v.length, (d) => d[field]);
+      const order = [...sizes.entries()].sort((a, b) => b[1] - a[1] || d3.ascending(a[0], b[0])).map(([c]) => c);
+      return { order, sizes, slot: new Map(order.slice(0, SLOTS).map((c, i) => [c, i])) };
+    };
+    return { topicOrder, topicSlot, commOrder, commSizes, commSlot, question: tagSlots("question"), subject: tagSlots("subject") };
   }
 
   function groupOf(node) {
     if (state.mode === "topic") return node.topic;
     if (state.mode === "community") return node.community;
+    if (state.mode === "citations") return node[state.axis];
     return node.kind;
   }
 
   function colorOf(node) {
     const s = state.data.slots;
     if (state.mode === "agreement") return node.kind === "agree" ? colors.muted : colors.series[KINDS[node.kind].slot];
-    const slot = state.mode === "topic" ? s.topicSlot.get(node.topic) : s.commSlot.get(node.community);
+    const slot = state.mode === "topic" ? s.topicSlot.get(node.topic)
+      : state.mode === "community" ? s.commSlot.get(node.community) : s[state.axis].slot.get(node[state.axis]);
     return slot === undefined ? colors.muted : colors.series[slot];
   }
 
   function legendKey(node) {
     const s = state.data.slots;
     if (state.mode === "agreement") return groupOf(node);
-    const map = state.mode === "topic" ? s.topicSlot : s.commSlot;
+    const map = state.mode === "topic" ? s.topicSlot : state.mode === "community" ? s.commSlot : s[state.axis].slot;
     const g = groupOf(node);
     return map.has(g) ? g : "other";
   }
@@ -347,7 +386,7 @@
       (state.isolate !== null && legendKey(n) !== state.isolate) ||
       (state.hits.size > 0 && !state.hits.has(n.id));
 
-    if (state.showEdges) {
+    if (state.showEdges && state.mode !== "citations") {
       ctx.lineWidth = 1;
       ctx.strokeStyle = colors.edge;
       ctx.beginPath();
@@ -357,6 +396,26 @@
         ctx.moveTo(sx(a), sy(a)); ctx.lineTo(sx(b), sy(b));
       }
       ctx.stroke();
+    }
+    if (state.showEdges && state.mode === "citations") {
+      // Co-citations dotted and faint, direct citations solid: these are links lawyers drew, not the model.
+      ctx.strokeStyle = colors.textSecondary;
+      ctx.lineWidth = 1; ctx.globalAlpha = 0.35; ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      for (const [s, t] of data.citations.cocited) {
+        const a = byId.get(s), b = byId.get(t);
+        if (state.isolate !== null && (isDim(a) || isDim(b))) continue;
+        ctx.moveTo(sx(a), sy(a)); ctx.lineTo(sx(b), sy(b));
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      for (const [s, t] of data.citations.direct) {
+        const a = byId.get(s), b = byId.get(t);
+        if (state.isolate !== null && (isDim(a) || isDim(b))) continue;
+        ctx.moveTo(sx(a), sy(a)); ctx.lineTo(sx(b), sy(b));
+      }
+      ctx.stroke(); ctx.globalAlpha = 1;
     }
 
     if (state.selected) {
@@ -401,7 +460,7 @@
   function drawGroupLabels() {
     if (state.mode === "agreement") return;
     const s = state.data.slots;
-    const slotMap = state.mode === "topic" ? s.topicSlot : s.commSlot;
+    const slotMap = state.mode === "topic" ? s.topicSlot : state.mode === "community" ? s.commSlot : s[state.axis].slot;
     ctx.font = "600 12px system-ui, -apple-system, 'Segoe UI', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -411,7 +470,7 @@
       const members = state.data.nodes.filter((n) => groupOf(n) === group);
       if (members.length < 3) continue;
       const x = d3.median(members, sx), y = d3.median(members, sy);
-      let text = state.mode === "topic" ? topicLabel(group) : `Community ${group}`;
+      let text = state.mode === "topic" ? topicLabel(group) : state.mode === "community" ? `Community ${group}` : catName(group);
       if (text.length > 34) text = text.slice(0, 33) + "…";
       ctx.lineWidth = 4; ctx.strokeStyle = colors.surface; ctx.strokeText(text, x, y - 14);
       ctx.fillStyle = colors.text; ctx.fillText(text, x, y - 14);
@@ -427,6 +486,12 @@
       const n = d3.sum(KIND_ORDER, (k) => counts[k]);
       items = KIND_ORDER.map((k) => ({ key: k, color: colors.series[KINDS[k].slot], name: `${KINDS[k].name} (${counts[k]})` }));
       items.push({ key: "agree", color: colors.muted, name: `Methods agree (${state.data.nodes.length - n})` });
+    } else if (state.mode === "citations") {
+      const ax = s[state.axis];
+      items = ax.order.filter((c) => ax.slot.has(c)).map((c) => ({ key: c, color: colors.series[ax.slot.get(c)], name: `${catName(c)} (${ax.sizes.get(c)})` }));
+      const rest = ax.order.length - ax.slot.size;
+      if (rest > 0) items.push({ key: "other", color: colors.muted, name: `Other: ${rest} smaller categories` });
+      if (!ax.order.length) items.push({ key: "other", color: colors.muted, name: "No tags for this corpus" });
     } else if (state.mode === "topic") {
       items = s.topicOrder.filter((id) => s.topicSlot.has(id)).map((id) => ({
         key: id, color: colors.series[s.topicSlot.get(id)], name: `${topicLabel(id)} (${state.data.topics[id].size})`,
@@ -446,7 +511,7 @@
       </button>`).join("");
     legendEl.querySelectorAll("button").forEach((btn) => btn.addEventListener("click", () => {
       const raw = btn.dataset.key;
-      const key = /^-?\d+$/.test(raw) ? Number(raw) : raw;
+      const key = /^-?\d+$/.test(raw) && state.mode !== "citations" ? Number(raw) : raw;
       state.isolate = state.isolate === key ? null : key;
       renderLegend(); draw();
     }));
@@ -479,7 +544,8 @@
         <table class="topics"><tbody>${rows}</tbody></table>
       </section>`;
     panel.innerHTML = `
-      ${state.mode === "agreement" ? renderDisagreements() + topicsSection.replace("<section>", '<section style="margin-top:22px">') : topicsSection}
+      ${state.mode === "agreement" ? renderDisagreements() + topicsSection.replace("<section>", '<section style="margin-top:22px">')
+        : state.mode === "citations" ? renderCitations() + topicsSection.replace("<section>", '<section style="margin-top:22px">') : topicsSection}
       <section>
         <h2>Topics × communities</h2>
         <p class="small muted" style="margin:0 0 8px">How BERTopic topics (rows) split across Louvain communities (columns).
@@ -557,6 +623,55 @@
       </section>`;
   }
 
+  const fmt = (x, d = 2) => (x == null ? "–" : Number(x).toFixed(d));
+  const statsTable = (head, rows, hl = -1) => `<table class="stats"><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r, i) => `<tr${i === hl ? ' class="hl"' : ""}>${r.map((c, j) => `<td>${j ? esc(c) : c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+
+  function renderCitations() {
+    const { data } = state;
+    const a = data.citations.analysis;
+    const L = a.links, T = a.tags;
+    const n = data.nodes.length;
+    let html = `<section><h2>Citations as a yardstick</h2>
+      <p class="small secondary" style="margin:0 0 6px">Opinions cite earlier cases. Those links are how lawyers relate cases, by the legal question rather than the facts, and they don't come from the model. Lines on the map: <span class="cite-edge-key"><span><i></i>one cites the other (${L.direct_pairs})</span><span><i class="faint"></i>both cite a shared precedent (${L.cocitation_pairs})</span></span></p>
+      <p class="small muted" style="margin:0 0 8px">${L.docs_linked} of ${L.docs} cases have at least one link.${L.direct_pairs < 20 ? " That is too few to conclude much; the 1,000-case sample (DOCS_PATH=data/sample_1000.jsonl) has hundreds." : ""}</p>`;
+    const sb = a.similarity_by_link;
+    html += `<div class="finding"><b>Does similarity recover the links?</b></div>` + statsTable(["Pair", "Mean similarity", "Pairs"], [
+      ["No citation link", fmt(sb.none.sim, 3), sb.none.n], ["Share 1 precedent", fmt(sb.shared_1.sim, 3), sb.shared_1.n],
+      ["Share 2+ precedents", fmt(sb.shared_2plus.sim, 3), sb.shared_2plus.n], ["One cites the other", fmt(sb.direct.sim, 3), sb.direct.n]]);
+    if (a.direct_partner_rank) {
+      const r = a.direct_partner_rank;
+      html += `<p class="small secondary" style="margin:6px 0 0">If A cites B, B's median rank among A's ${n - 1} neighbours is <b>${r.median}</b>; in the top 10 for ${pct(r.top10)} of pairs (random: ${pct(r.random_top10)}).${a.auc_direct != null ? ` Similarity separates citing pairs from unlinked ones with AUC ${fmt(a.auc_direct)}.` : ""}</p>`;
+    }
+    const g = a.grouping;
+    html += `<div class="finding"><b>Do the groupings keep linked cases together?</b></div>` + statsTable(["Pairs that are…", "Same topic", "Same community"], [
+      ["Random", pct(g.topic.random), pct(g.community.random)], ["Citation-linked", pct(g.topic.linked), pct(g.community.linked)], ["One cites the other", pct(g.topic.direct), pct(g.community.direct)]]);
+    if (!T) {
+      html += `<p class="small muted" style="margin-top:10px">No subject / legal-question tags for this corpus, so the facts-vs-law comparison is unavailable. Tags live in data/legal_tags_&lt;corpus&gt;.jsonl.</p></section>`;
+      return html;
+    }
+    const sh = T.similarity_by_shared, ns = T.neighbour_share, cs = T.citation_share, gs = T.grouping_share, pr = T.partner_rank_by_shared;
+    html += `</section><section><h2>Facts or law?</h2>
+      <p class="small secondary" style="margin:0 0 6px">Each case was tagged by Claude with its factual <b>subject</b> and the <b>legal question</b> the Court decides. Use the toggle above the map to colour by either.</p>
+      <div class="finding"><b>What moves embedding similarity</b></div>` + statsTable(["Pair shares…", "Mean similarity", "Pairs"], [
+      ["Neither", fmt(sh.neither.sim, 3), sh.neither.n], ["Legal question only", fmt(sh.question_only.sim, 3), sh.question_only.n],
+      ["Subject only", fmt(sh.subject_only.sim, 3), sh.subject_only.n], ["Both", fmt(sh.both.sim, 3), sh.both.n]], 2);
+    html += `<p class="small secondary" style="margin:6px 0 0">A case's ${ns.k} nearest neighbours share its subject ${pct(ns.subject.value)} of the time (chance ${pct(ns.subject.chance)}) and its legal question ${pct(ns.question.value)} (chance ${pct(ns.question.chance)}).</p>`;
+    html += `<div class="finding"><b>What citations follow</b></div>` + statsTable(["Pairs that are…", "Same subject", "Same question"], [
+      ["Random", pct(cs.random.subject), pct(cs.random.question)], ["Co-cited", pct(cs.cocitation.subject), pct(cs.cocitation.question)], ["One cites the other", pct(cs.direct.subject), pct(cs.direct.question)],
+      ["Same BERTopic topic", pct(gs.topic.subject), pct(gs.topic.question)], ["Same community", pct(gs.community.subject), pct(gs.community.question)]]);
+    if (pr && Object.keys(pr).length) {
+      const row = (k, name) => (pr[k] ? [name, pr[k].median, pct(pr[k].top10), pr[k].n] : null);
+      html += `<div class="finding"><b>When A cites B, can the model find B?</b></div>` + statsTable(["The pair has…", "Median rank", "Top 10", "Pairs"],
+        [row("both", "Same facts, same question"), row("subject_only", "Same facts, different question"), row("question_only", "Different facts, same question"), row("neither", "Neither")].filter(Boolean));
+    }
+    const qc = T.question_categories.filter((r) => r.within != null).slice(0, 8);
+    html += `<div class="finding"><b>Legal questions the model can and can't see</b></div>
+      <p class="small muted" style="margin:0">Mean similarity among cases with the same legal question vs with everything else. A gap near zero means the model does not notice they share a question.</p>` +
+      statsTable(["Legal question", "Cases", "Subjects", "Within", "Other", "Gap"], qc.map((r) => [catName(r.category), r.n, r.spans, fmt(r.within, 3), fmt(r.outside, 3), (r.within - r.outside >= 0 ? "+" : "") + fmt(r.within - r.outside, 3)]));
+    return html + `</section>`;
+  }
+
   function renderHeatmap() {
     const { data } = state;
     const s = data.slots;
@@ -606,7 +721,9 @@
         getJSON(`/documents/${encodeURIComponent(id)}/similar?top_k=8`),
       ]);
       if (state.selected !== node) return;
-      state.neighbors = similar.map((d) => d.id);
+      const c = doc.citations;
+      state.neighbors = state.mode === "citations" && c
+        ? [...c.cites, ...c.cited_by, ...c.cocited].map((p) => p.id) : similar.map((d) => d.id);
       draw();
       renderDoc(doc, similar, node);
     } catch (err) {
@@ -628,8 +745,10 @@
           <span class="pill"><span class="swatch" style="background:${cSlot === undefined ? colors.muted : colors.series[cSlot]}"></span>Community ${doc.community_id}</span>
           ${doc.date ? `<span class="muted">${esc(doc.date)}</span>` : ""}
         </div>
+        ${renderTags(doc)}
         ${node.kind !== "agree" ? renderWhy(state.data.disagreements.docs[doc.id]) : ""}
         ${renderPassageMix(doc.passage_topics)}
+        ${renderDocCitations(doc)}
         <h2 style="margin-top:12px">${doc.syllabus ? "Syllabus" : "Opening of the opinion"}</h2>
         <div class="syllabus">${esc(syllabus.length > 1400 ? syllabus.slice(0, 1400) + "…" : syllabus)}</div>
         <p class="small"><a href="/documents/${encodeURIComponent(doc.id)}" target="_blank" rel="noopener">Full opinion (JSON)</a></p>
@@ -646,6 +765,34 @@
     panel.querySelectorAll("button[data-id]").forEach((b) => b.addEventListener("click", () => selectDoc(b.dataset.id)));
     bindHeatTooltips();
     panel.scrollTop = 0;
+  }
+
+  function renderTags(doc) {
+    if (!doc.question_category && !doc.subject_category) return "";
+    const s = state.data.slots;
+    const sw = (axis, c) => { const slot = s[axis].slot.get(c); return `<span class="swatch" style="background:${slot === undefined ? colors.muted : colors.series[slot]}"></span>`; };
+    return `<div class="note" style="margin-top:8px">
+      <div class="pill">${sw("subject", doc.subject_category)}<span><b>Subject:</b> ${esc(catName(doc.subject_category))}${doc.subject ? ` · ${esc(doc.subject)}` : ""}</span></div>
+      <div class="pill" style="margin-top:4px">${sw("question", doc.question_category)}<span><b>Legal question:</b> ${esc(catName(doc.question_category))}</span></div>
+      ${doc.legal_question ? `<div class="small secondary" style="margin-top:4px">${esc(doc.legal_question)}</div>` : ""}
+    </div>`;
+  }
+
+  function renderDocCitations(doc) {
+    const c = doc.citations;
+    if (!c) return "";
+    const n = state.data.nodes.length;
+    const item = (p, what) => {
+      const other = byId.get(p.id);
+      const rank = p.rank != null ? `<span class="score" title="Where the embedding ranks this case among the ${n - 1} others">rank ${p.rank}</span>` : p.shared != null ? `<span class="score">${p.shared} shared</span>` : "";
+      return `<li><button type="button" data-id="${esc(p.id)}"><div class="row"><span>${esc(other?.title ?? p.id)}</span>${rank}</div>
+        <div class="snippet">${what} · ${esc(catName(other?.question))}</div></button></li>`;
+    };
+    const items = [...c.cites.map((p) => item(p, "cited by this opinion")), ...c.cited_by.map((p) => item(p, "cites this opinion")), ...c.cocited.map((p) => item(p, "cites a shared precedent"))];
+    if (!items.length) return `<h2 style="margin-top:14px">Citations</h2><p class="small muted" style="margin:0">Cites ${c.num_citations} case${c.num_citations === 1 ? "" : "s"}, none in this corpus.</p>`;
+    return `<h2 style="margin-top:14px">Citation links in this corpus</h2>
+      <p class="small muted" style="margin:0 0 4px">Cites ${c.num_citations} cases in total. "Rank" is where the embedding puts the linked case among this one's neighbours: 1 would be its nearest.</p>
+      <ul class="list">${items.join("")}</ul>`;
   }
 
   function renderWhy(x) {
@@ -727,7 +874,7 @@
   function nodeTooltip(n) {
     return `<b>${esc(n.title)}</b>${n.date ? ` <span class="muted">${esc(n.date)}</span>` : ""}<br>
       <span class="secondary">Topic:</span> ${esc(topicLabel(n.topic))}<br>
-      <span class="secondary">Community:</span> ${n.community}${n.kind !== "agree" ? `<br><span class="secondary">Disagreement:</span> ${KINDS[n.kind].short}` : ""}`;
+      <span class="secondary">Community:</span> ${n.community}${n.kind !== "agree" ? `<br><span class="secondary">Disagreement:</span> ${KINDS[n.kind].short}` : ""}${n.question ? `<br><span class="secondary">Question:</span> ${esc(catName(n.question))} · <span class="secondary">Subject:</span> ${esc(catName(n.subject))}` : ""}`;
   }
 
   // ---------- interaction ----------
@@ -757,6 +904,8 @@
   function setMode(mode) {
     state.mode = mode; state.isolate = null;
     if (state.group) { state.group = null; state.hits = new Set(); }
+    document.body.dataset.mode = mode;
+    document.getElementById("edges-label").textContent = mode === "citations" ? "Citation links" : "Similarity edges";
     const url = new URL(window.location);
     if (mode === "topic") url.searchParams.delete("mode"); else url.searchParams.set("mode", mode);
     history.replaceState(null, "", url);
@@ -768,6 +917,11 @@
     if (!state.selected && !state.searchResults) renderOverview();
   }));
   document.getElementById("edges").addEventListener("change", (e) => { state.showEdges = e.target.checked; draw(); });
+  document.querySelectorAll("#axis button").forEach((b) => b.addEventListener("click", () => {
+    state.axis = b.dataset.axis; state.isolate = null;
+    document.querySelectorAll("#axis button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    renderLegend(); draw();
+  }));
 
   document.getElementById("search-form").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -812,7 +966,7 @@
         [pct(c.disagreement_rate), "disagree"],
       ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
       const params = new URLSearchParams(window.location.search);
-      if (["topic", "community", "agreement"].includes(params.get("mode"))) setMode(params.get("mode"));
+      if (MODES.includes(params.get("mode"))) setMode(params.get("mode"));
       renderLegend();  // before layout, so the map reserves room for it
       resize();
       renderOverview();

@@ -3,5 +3,7 @@ __pycache__/
 .venv/
 .cache/
 .pytest_cache/
-# Downloaded corpora; data/documents.jsonl is tracked explicitly.
-data/
+# Downloaded corpora are not tracked; the bundled corpus and the tag files are.
+data/*
+!data/documents.jsonl
+!data/legal_tags_*.jsonl

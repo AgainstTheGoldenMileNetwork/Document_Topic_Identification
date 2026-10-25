@@ -97,6 +97,15 @@ def test_disagreement_analysis(client):
     assert sum(doc["passage_topics"].values()) >= 1
 
 
+def test_citation_analysis(client):
+    body = client.get("/analysis/citations").json()
+    assert body["links"]["docs"] == 48 and body["tags"] is None  # fake corpus: no citations, no tags
+    doc = client.get("/documents/patent-0").json()
+    assert doc["citations"] == {"cites": [], "cited_by": [], "cocited": [], "num_citations": 0}
+    export = client.get("/graph/export").json()
+    assert export["citations"]["direct"] == [] and export["citations"]["analysis"]["links"]["direct_pairs"] == 0
+
+
 def test_explorer_served(client):
     res = client.get("/explorer")
     assert res.status_code == 200 and "Legal Topic Explorer" in res.text

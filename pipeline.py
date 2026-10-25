@@ -18,6 +18,7 @@ import numpy as np
 
 from config import Settings
 from data_loader import ChunkIndex, Embedder, load_docs, load_or_embed
+from citations import build_citation_graph, citation_analysis, load_tags, strip_citations, TAG_FIELDS
 from evaluation import compare_partitions, explain_disagreements, passage_topic_mix
 from labeling import generate_labels
 from similarity import SimilarityGraph
@@ -38,6 +39,9 @@ class CorpusIndex:
     coords: np.ndarray
     comparison: Dict[str, Any]
     disagreements: Dict[str, Any]
+    citation_graph: Dict[str, Any]
+    citation_analysis: Dict[str, Any]
+    embed_texts: List[str]  # what was embedded: the opinion, or the opinion with citations stripped
     outlier_fraction: float
     embedder: Embedder
     settings: Settings
@@ -69,7 +73,7 @@ class CorpusIndex:
                 "title": doc.get("title"),
                 "score": float(sims[ci]),
                 "cluster_id": doc.get("cluster_id"),
-                "snippet": " ".join(doc["text"][start:end].split())[:400],
+                "snippet": " ".join(self.embed_texts[di][start:end].split())[:400],
             })
         return results
 
@@ -81,7 +85,7 @@ def _analysis_cache_key(embedding_key: str, settings: Settings) -> str:
 
 def build_index(settings: Settings, embedder: Embedder | None = None) -> CorpusIndex:
     docs = load_docs(settings.docs_path)
-    texts = [d["text"] for d in docs]
+    texts = [strip_citations(d["text"]) if settings.strip_citations else d["text"] for d in docs]
     embedder = embedder or Embedder(settings.embed_model, settings.embed_strategy, settings.chunk_overlap)
 
     logger.info("Embedding %d documents (%s, %s)...", len(docs), settings.embed_model, settings.embed_strategy)
@@ -128,6 +132,16 @@ def build_index(settings: Settings, embedder: Embedder | None = None) -> CorpusI
         doc["community_id"] = cid
     comparison = compare_partitions(doc_ids, topic_ids, community_ids)
     disagreements = explain_disagreements(doc_ids, topic_ids, community_ids, embeddings)
+
+    # Citations are an external check on all of the above: they link cases by
+    # legal question rather than by vocabulary. Tags (subject vs legal
+    # question per case) are optional and come from a sidecar file.
+    logger.info("Building citation graph...")
+    citation_graph = build_citation_graph(doc_ids, [d["text"] for d in docs])
+    tags = load_tags(settings.resolved_tags_path())
+    for doc in docs:
+        doc.update({k: v for k, v in tags.get(str(doc["id"]), {}).items() if k in TAG_FIELDS})
+    cite_analysis = citation_analysis(doc_ids, embeddings, citation_graph, topic_ids, community_ids, tags)
     for doc, mix in zip(docs, passage_topic_mix(embeddings, topic_ids, chunks.embeddings, chunks.doc_idx)):
         doc["passage_topics"] = mix
 
@@ -140,6 +154,9 @@ def build_index(settings: Settings, embedder: Embedder | None = None) -> CorpusI
         coords=np.asarray(coords),
         comparison=comparison,
         disagreements=disagreements,
+        citation_graph=citation_graph,
+        citation_analysis=cite_analysis,
+        embed_texts=texts,
         outlier_fraction=outlier_fraction,
         embedder=embedder,
         settings=settings,

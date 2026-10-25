@@ -12,6 +12,7 @@ from models import (
     ClusterSummary,
     CommunityDetail,
     Comparison,
+    CitationAnalysis,
     DisagreementAnalysis,
     Document,
     GraphInfo,
@@ -19,6 +20,7 @@ from models import (
     SimilarDocument,
     SimilarityEdge,
 )
+from citations import doc_citations
 from pipeline import CorpusIndex, build_index
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -140,6 +142,11 @@ def get_document(doc_id: str):
         cluster_id=d.get("cluster_id"),
         community_id=d.get("community_id"),
         passage_topics=d.get("passage_topics", {}),
+        subject=d.get("subject"),
+        subject_category=d.get("subject_category"),
+        legal_question=d.get("legal_question"),
+        question_category=d.get("question_category"),
+        citations=doc_citations(doc_id, index().citation_graph, index().citation_analysis),
     )
 
 
@@ -225,6 +232,8 @@ def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
                 "community": d["community_id"],
                 "disagrees": str(d["id"]) in kinds,
                 "kind": kinds.get(str(d["id"]), "agree"),
+                "subject": d.get("subject_category"),
+                "question": d.get("question_category"),
             }
             for i, d in enumerate(idx.docs)
         ],
@@ -239,10 +248,16 @@ def graph_export(max_edges: int = Query(default=4000, ge=0, le=50000)):
         "graph": idx.graph.get_info(),
         "comparison": {k: v for k, v in idx.comparison.items() if k != "disagreements"},
         "disagreements": idx.disagreements,
+        "citations": {
+            "direct": [sorted(p) for p in idx.citation_graph["direct"]],
+            "cocited": [[*sorted(p), c] for p, c in idx.citation_graph["shared_count"].items()],
+            "analysis": {k: v for k, v in idx.citation_analysis.items() if k != "partner_rank"},
+        },
         "settings": {
             "embed_model": idx.settings.embed_model,
             "embed_strategy": idx.settings.embed_strategy,
             "outlier_fraction": idx.outlier_fraction,
+            "strip_citations": idx.settings.strip_citations,
         },
     }
 
@@ -264,3 +279,12 @@ def disagreements():
     nearest-neighbour votes and similarity to its topic vs its community's majority topic.
     """
     return DisagreementAnalysis(**index().disagreements)
+
+
+@app.get("/analysis/citations", response_model=CitationAnalysis)
+def citations():
+    """
+    How well similarity, topics and communities recover the citation graph, and
+    (with tags) whether similarity follows shared facts or a shared legal question.
+    """
+    return CitationAnalysis(**{k: v for k, v in index().citation_analysis.items() if k != "partner_rank"})
