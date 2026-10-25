@@ -1,4 +1,7 @@
 __pycache__/
 .env
 .venv/
+.cache/
+.pytest_cache/
+# Downloaded corpora; data/documents.jsonl is tracked explicitly.
 data/

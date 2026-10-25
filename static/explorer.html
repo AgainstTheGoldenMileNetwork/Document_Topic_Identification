@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal Topic Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --surface-2: #f3f2ee;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #6f6d68;
+    --mark-muted: #c3c2b7;
+    --edge: rgba(82, 81, 78, 0.16);
+    --border: rgba(11, 11, 11, 0.10);
+    --focus: #2a78d6;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+    --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6;
+    --heat: 42, 120, 214;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface-1: #1a1a19;
+      --surface-2: #232321;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #9a988f;
+      --mark-muted: #4a4a46;
+      --edge: rgba(195, 194, 183, 0.14);
+      --border: rgba(255, 255, 255, 0.10);
+      --focus: #3987e5;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --series-5: #d55181; --series-6: #008300; --series-7: #9085e9;
+      --heat: 57, 135, 229;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-2: #232321;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #9a988f;
+    --mark-muted: #4a4a46;
+    --edge: rgba(195, 194, 183, 0.14);
+    --border: rgba(255, 255, 255, 0.10);
+    --focus: #3987e5;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #008300; --series-7: #9085e9;
+    --heat: 57, 135, 229;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px;
+    padding: 14px 20px 10px;
+  }
+  h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-left: auto; }
+  .stat { display: flex; flex-direction: column; }
+  .stat b { font-size: 16px; font-weight: 650; }
+  .stat span { font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 0 20px 12px;
+  }
+  .segmented { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 2px; }
+  .segmented button {
+    border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .segmented button[aria-pressed="true"] {
+    background: var(--surface-1); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border);
+  }
+  label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer; }
+  form.search { display: flex; flex: 1 1 280px; max-width: 520px; gap: 6px; }
+  form.search input {
+    flex: 1; min-width: 0; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-1);
+  }
+  form.search button, .link-button {
+    border: 1px solid var(--border); background: var(--surface-1); border-radius: 8px;
+    padding: 6px 12px; cursor: pointer;
+  }
+
+  main {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px;
+    padding: 0 20px 20px;
+  }
+  .card {
+    background: var(--surface-1); border-radius: 12px; box-shadow: 0 0 0 1px var(--border);
+    min-height: 0; position: relative;
+  }
+  #map-card { overflow: hidden; }
+  #map { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #map.pointer { cursor: pointer; }
+  .legend {
+    position: absolute; left: 12px; bottom: 12px; right: 12px;
+    display: flex; flex-wrap: wrap; gap: 4px 6px; pointer-events: none;
+  }
+  .legend button {
+    pointer-events: auto; display: inline-flex; align-items: center; gap: 6px;
+    border: 0; border-radius: 999px; padding: 3px 9px 3px 7px; cursor: pointer;
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    box-shadow: 0 0 0 1px var(--border); color: var(--text-secondary); font-size: 12px;
+    max-width: 260px;
+  }
+  .legend button span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend button[aria-pressed="true"] { color: var(--text-primary); box-shadow: 0 0 0 1.5px var(--text-primary); }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .hint { position: absolute; top: 10px; right: 12px; font-size: 12px; color: var(--text-muted); pointer-events: none; }
+
+  #panel { overflow-y: auto; padding: 16px; }
+  #panel h2 { font-size: 13px; font-weight: 650; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+  #panel h3 { font-size: 16px; margin: 0 0 4px; }
+  #panel section + section { margin-top: 22px; }
+  .muted { color: var(--text-muted); }
+  .secondary { color: var(--text-secondary); }
+  .small { font-size: 12.5px; }
+
+  table.topics { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.topics td { padding: 6px 4px; border-top: 1px solid var(--border); vertical-align: top; }
+  table.topics tr { cursor: pointer; }
+  table.topics tr:hover td, table.topics tr[aria-selected="true"] td { background: var(--surface-2); }
+  table.topics td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  .kw { color: var(--text-muted); font-size: 12px; }
+
+  .heat { display: grid; gap: 2px; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .heat div { min-height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 3px; }
+  .heat .rowh { justify-content: flex-start; gap: 5px; color: var(--text-secondary); overflow: hidden; white-space: nowrap; }
+  .heat .colh { color: var(--text-muted); }
+
+  .doc-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 10px; font-size: 13px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .note { font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); color: var(--text-secondary); margin: 8px 0; }
+  .syllabus { font-size: 13px; color: var(--text-secondary); white-space: pre-line; }
+  ul.list { list-style: none; padding: 0; margin: 0; }
+  ul.list li { border-top: 1px solid var(--border); }
+  ul.list button {
+    display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 4px; cursor: pointer;
+  }
+  ul.list button:hover { background: var(--surface-2); }
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+  .score { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; flex: none; }
+  .snippet { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 10; max-width: 300px;
+    background: var(--surface-1); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12);
+    border-radius: 8px; padding: 8px 10px; font-size: 12.5px; display: none;
+  }
+  #status { padding: 40px; text-align: center; color: var(--text-secondary); }
+
+  @media (max-width: 860px) {
+    header, .controls { padding-left: 16px; padding-right: 16px; }
+    .stats { margin-left: 0; }
+    main { grid-template-columns: 1fr; grid-template-rows: 60vh auto; padding: 0 16px 16px; }
+    #panel { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Legal Topic Explorer</h1>
+    <div class="subtitle" id="subtitle">Supreme Court opinions placed by meaning. Nearby cases read alike.</div>
+  </div>
+  <div class="stats" id="stats"></div>
+</header>
+
+<div class="controls">
+  <div class="segmented" role="group" aria-label="Color by">
+    <button type="button" data-mode="topic" aria-pressed="true">Topic</button>
+    <button type="button" data-mode="community" aria-pressed="false">Community</button>
+    <button type="button" data-mode="agreement" aria-pressed="false">Disagreements</button>
+  </div>
+  <label class="check"><input type="checkbox" id="edges" checked> Similarity edges</label>
+  <form class="search" id="search-form" role="search">
+    <input id="search" type="search" placeholder="Describe a case, e.g. ship cargo damaged in a storm" aria-label="Search cases">
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+<main>
+  <div class="card" id="map-card">
+    <canvas id="map" aria-label="Map of cases; each dot is one opinion"></canvas>
+    <div class="hint">Scroll to zoom · drag to pan · click a dot</div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <aside class="card" id="panel"><div id="status">Loading the corpus…</div></aside>
+</main>
+<div id="tooltip" role="status"></div>
+
+<script>
+(() => {
+  const SLOTS = 7;  // categorical slots in the palette; everything else folds into "Other"
+  const RADIUS = 4.5;
+  const PAD = 36;
+
+  const canvas = document.getElementById("map");
+  const ctx = canvas.getContext("2d");
+  const panel = document.getElementById("panel");
+  const legendEl = document.getElementById("legend");
+  const tooltip = document.getElementById("tooltip");
+
+  const state = {
+    data: null, mode: "topic", showEdges: true, isolate: null,
+    hover: null, selected: null, neighbors: [], hits: new Set(), searchResults: null,
+    transform: d3.zoomIdentity, width: 0, height: 0,
+  };
+  let colors = {};
+  let byId = new Map();
+  let quadtree = null;
+
+  // ---------- helpers ----------
+  // Selection and search live in the URL so a view can be linked or reloaded.
+  function setParam(key, value) {
+    const url = new URL(window.location);
+    url.searchParams.delete("doc"); url.searchParams.delete("q");
+    if (value) url.searchParams.set(key, value);
+    history.replaceState(null, "", url);
+  }
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  const getJSON = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json();
+  };
+
+  function readColors() {
+    colors = {
+      series: Array.from({ length: SLOTS }, (_, i) => css(`--series-${i + 1}`)),
+      muted: css("--mark-muted"), edge: css("--edge"), surface: css("--surface-1"),
+      text: css("--text-primary"), textSecondary: css("--text-secondary"), focus: css("--focus"),
+    };
+  }
+
+  // Slot assignment follows the entity (largest groups first), never the current filter.
+  function slotMaps(data) {
+    const topicOrder = Object.entries(data.topics).sort((a, b) => b[1].size - a[1].size).map(([id]) => Number(id));
+    const topicSlot = new Map(topicOrder.slice(0, SLOTS).map((id, i) => [id, i]));
+    const commSizes = d3.rollup(data.nodes, (v) => v.length, (d) => d.community);
+    const commOrder = [...commSizes.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([id]) => id);
+    const commSlot = new Map(commOrder.slice(0, SLOTS).filter((id) => commSizes.get(id) > 1).map((id, i) => [id, i]));
+    return { topicOrder, topicSlot, commOrder, commSizes, commSlot };
+  }
+
+  function groupOf(node) {
+    if (state.mode === "topic") return node.topic;
+    if (state.mode === "community") return node.community;
+    return node.disagrees ? "disagree" : "agree";
+  }
+
+  function colorOf(node) {
+    const s = state.data.slots;
+    if (state.mode === "agreement") return node.disagrees ? colors.series[1] : colors.muted;
+    const slot = state.mode === "topic" ? s.topicSlot.get(node.topic) : s.commSlot.get(node.community);
+    return slot === undefined ? colors.muted : colors.series[slot];
+  }
+
+  function legendKey(node) {
+    const s = state.data.slots;
+    if (state.mode === "agreement") return groupOf(node);
+    const map = state.mode === "topic" ? s.topicSlot : s.commSlot;
+    const g = groupOf(node);
+    return map.has(g) ? g : "other";
+  }
+
+  const topicLabel = (id) => state.data.topics[id]?.label ?? `Topic ${id}`;
+
+  // ---------- layout ----------
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    state.width = rect.width; state.height = rect.height;
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (state.data) {
+      for (const n of state.data.nodes) {
+        n.bx = PAD + n.x * (state.width - 2 * PAD);
+        n.by = PAD + (1 - n.y) * (state.height - 2 * PAD - legendEl.offsetHeight);
+      }
+      quadtree = d3.quadtree(state.data.nodes, (d) => d.bx, (d) => d.by);
+    }
+    draw();
+  }
+
+  const sx = (n) => state.transform.applyX(n.bx);
+  const sy = (n) => state.transform.applyY(n.by);
+
+  // ---------- drawing ----------
+  function draw() {
+    const { data } = state;
+    ctx.clearRect(0, 0, state.width, state.height);
+    if (!data) return;
+
+    const focusSet = state.selected ? new Set([state.selected.id, ...state.neighbors]) : null;
+    const isDim = (n) =>
+      (state.isolate !== null && legendKey(n) !== state.isolate) ||
+      (state.hits.size > 0 && !state.hits.has(n.id));
+
+    if (state.showEdges) {
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = colors.edge;
+      ctx.beginPath();
+      for (const [s, t] of data.edges) {
+        const a = byId.get(s), b = byId.get(t);
+        if (state.isolate !== null && (isDim(a) || isDim(b))) continue;
+        ctx.moveTo(sx(a), sy(a)); ctx.lineTo(sx(b), sy(b));
+      }
+      ctx.stroke();
+    }
+
+    if (state.selected) {
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = colors.text;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      for (const id of state.neighbors) {
+        const b = byId.get(id);
+        ctx.moveTo(sx(state.selected), sy(state.selected)); ctx.lineTo(sx(b), sy(b));
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Muted marks first so colored marks sit on top; a surface ring separates overlaps.
+    const ordered = [...data.nodes].sort((a, b) => (isDim(b) - isDim(a)) || ((colorOf(a) === colors.muted) ? -1 : 1));
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = colors.surface;
+    for (const n of ordered) {
+      const dim = isDim(n);
+      ctx.globalAlpha = dim ? 0.18 : 1;
+      ctx.fillStyle = dim ? colors.muted : colorOf(n);
+      ctx.beginPath();
+      ctx.arc(sx(n), sy(n), RADIUS, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    const ring = (n, r, color, w) => {
+      ctx.beginPath(); ctx.arc(sx(n), sy(n), r, 0, Math.PI * 2);
+      ctx.lineWidth = w; ctx.strokeStyle = color; ctx.stroke();
+    };
+    if (focusSet) for (const id of state.neighbors) ring(byId.get(id), RADIUS + 3, colors.text, 1.5);
+    if (state.selected) ring(state.selected, RADIUS + 4, colors.text, 2.5);
+    if (state.hover && state.hover !== state.selected) ring(state.hover, RADIUS + 3, colors.text, 2);
+
+    drawGroupLabels();
+  }
+
+  // Direct labels at each colored group's centre: identity never rests on color alone.
+  function drawGroupLabels() {
+    if (state.mode === "agreement") return;
+    const s = state.data.slots;
+    const slotMap = state.mode === "topic" ? s.topicSlot : s.commSlot;
+    ctx.font = "600 12px system-ui, -apple-system, 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    for (const [group] of slotMap) {
+      if (state.isolate !== null && state.isolate !== group) continue;
+      const members = state.data.nodes.filter((n) => groupOf(n) === group);
+      if (members.length < 3) continue;
+      const x = d3.median(members, sx), y = d3.median(members, sy);
+      let text = state.mode === "topic" ? topicLabel(group) : `Community ${group}`;
+      if (text.length > 34) text = text.slice(0, 33) + "…";
+      ctx.lineWidth = 4; ctx.strokeStyle = colors.surface; ctx.strokeText(text, x, y - 14);
+      ctx.fillStyle = colors.text; ctx.fillText(text, x, y - 14);
+    }
+  }
+
+  // ---------- legend ----------
+  function renderLegend() {
+    const s = state.data.slots;
+    let items;
+    if (state.mode === "agreement") {
+      const n = state.data.nodes.filter((d) => d.disagrees).length;
+      items = [
+        { key: "disagree", color: colors.series[1], name: `Topic differs from its community's majority (${n})` },
+        { key: "agree", color: colors.muted, name: `Methods agree (${state.data.nodes.length - n})` },
+      ];
+    } else if (state.mode === "topic") {
+      items = s.topicOrder.filter((id) => s.topicSlot.has(id)).map((id) => ({
+        key: id, color: colors.series[s.topicSlot.get(id)], name: `${topicLabel(id)} (${state.data.topics[id].size})`,
+      }));
+      const rest = s.topicOrder.length - s.topicSlot.size;
+      if (rest > 0) items.push({ key: "other", color: colors.muted, name: `Other: ${rest} smaller topics` });
+    } else {
+      items = s.commOrder.filter((id) => s.commSlot.has(id)).map((id) => ({
+        key: id, color: colors.series[s.commSlot.get(id)], name: `Community ${id} (${s.commSizes.get(id)})`,
+      }));
+      const rest = s.commOrder.length - s.commSlot.size;
+      if (rest > 0) items.push({ key: "other", color: colors.muted, name: `Other: ${rest} small communities` });
+    }
+    legendEl.innerHTML = items.map((it) => `
+      <button type="button" data-key="${esc(it.key)}" aria-pressed="${String(state.isolate) === String(it.key)}" title="${esc(it.name)}">
+        <span class="swatch" style="background:${it.color}"></span><span class="name">${esc(it.name)}</span>
+      </button>`).join("");
+    legendEl.querySelectorAll("button").forEach((btn) => btn.addEventListener("click", () => {
+      const raw = btn.dataset.key;
+      const key = /^-?\d+$/.test(raw) ? Number(raw) : raw;
+      state.isolate = state.isolate === key ? null : key;
+      renderLegend(); draw();
+    }));
+  }
+
+  // ---------- panel ----------
+  function renderOverview() {
+    const { data } = state;
+    const s = data.slots;
+    const swatch = (id) => {
+      const slot = s.topicSlot.get(id);
+      return `<span class="swatch" style="background:${slot === undefined ? colors.muted : colors.series[slot]}"></span>`;
+    };
+    const labelNote = Object.values(data.topics).some((t) => t.label_source === "llm")
+      ? "Topic names written by Claude from each topic's keywords and representative cases."
+      : "Topic names are BERTopic's top keywords. Set ENABLE_LLM_LABELS=1 for readable names.";
+
+    const rows = s.topicOrder.map((id) => {
+      const t = data.topics[id];
+      return `<tr data-topic="${id}" tabindex="0" aria-selected="${state.mode === "topic" && state.isolate === id}">
+        <td>${swatch(id)}</td>
+        <td><div>${esc(t.label)}</div><div class="kw">${esc(t.top_terms.slice(0, 6).join(", "))}</div></td>
+        <td class="num">${t.size}</td></tr>`;
+    }).join("");
+
+    panel.innerHTML = `
+      <section>
+        <h2>Topics</h2>
+        <p class="small muted" style="margin:0 0 8px">${esc(labelNote)} Click a row to isolate it on the map.</p>
+        <table class="topics"><tbody>${rows}</tbody></table>
+      </section>
+      <section>
+        <h2>Topics × communities</h2>
+        <p class="small muted" style="margin:0 0 8px">How BERTopic topics (rows) split across Louvain communities (columns).
+          Shading is each topic's share; a topic sitting in one column means the two methods agree on it.</p>
+        ${renderHeatmap()}
+      </section>
+      <section>
+        <h2>About this run</h2>
+        <p class="small secondary" style="margin:0">
+          Embeddings: <b>${esc(data.settings.embed_model)}</b> (${esc(data.settings.embed_strategy)}).
+          ${pct(data.settings.outlier_fraction)} of cases were HDBSCAN outliers, reassigned to their nearest topic.
+          Graph edges join pairs with cosine similarity ≥ ${data.graph.threshold.toFixed(3)}.
+        </p>
+      </section>`;
+
+    panel.querySelectorAll("tr[data-topic]").forEach((tr) => {
+      const act = () => {
+        const id = Number(tr.dataset.topic);
+        if (state.mode !== "topic") setMode("topic");
+        const key = s.topicSlot.has(id) ? id : "other";
+        state.isolate = state.isolate === key ? null : key;
+        renderLegend(); renderOverview(); draw();
+      };
+      tr.addEventListener("click", act);
+      tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
+    });
+    bindHeatTooltips();
+  }
+
+  function renderHeatmap() {
+    const { data } = state;
+    const s = data.slots;
+    const cols = s.commOrder.filter((c) => s.commSizes.get(c) > 1).slice(0, 8);
+    const colSet = new Set(cols);
+    const hasOther = s.commOrder.some((c) => !colSet.has(c));
+    const heat = css("--heat");
+    let html = `<div class="heat" style="grid-template-columns: minmax(90px, 1.6fr) repeat(${cols.length + (hasOther ? 1 : 0)}, minmax(24px, 1fr))">`;
+    html += `<div></div>` + cols.map((c) => `<div class="colh" title="Community ${c}">C${c}</div>`).join("") + (hasOther ? `<div class="colh" title="All other communities">rest</div>` : "");
+    for (const t of s.topicOrder) {
+      const row = data.comparison.contingency;
+      const total = data.topics[t].size;
+      const counts = cols.map((c) => row[String(c)]?.[String(t)] ?? 0);
+      const other = total - d3.sum(counts);
+      const cell = (n, colName) => {
+        const share = total ? n / total : 0;
+        const bg = n ? `rgba(${heat}, ${0.12 + 0.88 * share})` : "transparent";
+        const ink = share > 0.55 ? "#fff" : "var(--text-secondary)";
+        return `<div data-tip="${esc(topicLabel(t))}<br>${esc(colName)}: <b>${n}</b> of ${total} cases (${pct(share)})" style="background:${bg};color:${ink}">${n || ""}</div>`;
+      };
+      html += `<div class="rowh" title="${esc(topicLabel(t))}">${esc(topicLabel(t))}</div>`;
+      html += counts.map((n, i) => cell(n, `Community ${cols[i]}`)).join("");
+      if (hasOther) html += cell(other, "Other communities");
+    }
+    return html + `</div>`;
+  }
+
+  function bindHeatTooltips() {
+    panel.querySelectorAll("[data-tip]").forEach((el) => {
+      el.addEventListener("mouseenter", (e) => showTooltip(el.dataset.tip, e.clientX, e.clientY));
+      el.addEventListener("mousemove", (e) => moveTooltip(e.clientX, e.clientY));
+      el.addEventListener("mouseleave", hideTooltip);
+    });
+  }
+
+  async function selectDoc(id) {
+    const node = byId.get(id);
+    if (!node) return;
+    state.selected = node;
+    state.neighbors = [];
+    setParam("doc", id);
+    draw();
+    panel.innerHTML = `<div class="muted">Loading ${esc(node.title)}…</div>`;
+    try {
+      const [doc, similar] = await Promise.all([
+        getJSON(`/documents/${encodeURIComponent(id)}`),
+        getJSON(`/documents/${encodeURIComponent(id)}/similar?top_k=8`),
+      ]);
+      if (state.selected !== node) return;
+      state.neighbors = similar.map((d) => d.id);
+      draw();
+      renderDoc(doc, similar, node);
+    } catch (err) {
+      panel.innerHTML = `<p>Could not load this case (${esc(err.message)}).</p>`;
+    }
+  }
+
+  function renderDoc(doc, similar, node) {
+    const s = state.data.slots;
+    const tSlot = s.topicSlot.get(doc.cluster_id);
+    const cSlot = s.commSlot.get(doc.community_id);
+    const majority = state.data.comparison.community_majority_topic[String(doc.community_id)];
+    const syllabus = doc.syllabus || doc.text.slice(0, 1200);
+    panel.innerHTML = `
+      <button type="button" class="link-button small" id="back">← All topics</button>
+      <section style="margin-top:12px">
+        <h3>${esc(doc.title)}</h3>
+        <div class="doc-meta">
+          <span class="pill"><span class="swatch" style="background:${tSlot === undefined ? colors.muted : colors.series[tSlot]}"></span>${esc(topicLabel(doc.cluster_id))}</span>
+          <span class="pill"><span class="swatch" style="background:${cSlot === undefined ? colors.muted : colors.series[cSlot]}"></span>Community ${doc.community_id}</span>
+          ${doc.date ? `<span class="muted">${esc(doc.date)}</span>` : ""}
+        </div>
+        ${node.disagrees ? `<div class="note">The methods disagree here: most of community ${doc.community_id} is in <b>${esc(topicLabel(majority))}</b>, but BERTopic put this case in a different topic.</div>` : ""}
+        <h2 style="margin-top:12px">${doc.syllabus ? "Syllabus" : "Opening of the opinion"}</h2>
+        <div class="syllabus">${esc(syllabus.length > 1400 ? syllabus.slice(0, 1400) + "…" : syllabus)}</div>
+        <p class="small"><a href="/documents/${encodeURIComponent(doc.id)}" target="_blank" rel="noopener">Full opinion (JSON)</a></p>
+      </section>
+      <section>
+        <h2>Most similar cases</h2>
+        <ul class="list">${similar.map((d) => {
+          const n = byId.get(d.id);
+          return `<li><button type="button" data-id="${esc(d.id)}"><div class="row"><span>${esc(d.title)}</span><span class="score">${d.similarity.toFixed(3)}</span></div>
+            <div class="snippet">${esc(topicLabel(n?.topic))}</div></button></li>`;
+        }).join("")}</ul>
+      </section>`;
+    panel.querySelector("#back").addEventListener("click", clearSelection);
+    panel.querySelectorAll("button[data-id]").forEach((b) => b.addEventListener("click", () => selectDoc(b.dataset.id)));
+    panel.scrollTop = 0;
+  }
+
+  function renderSearch(query, results) {
+    panel.innerHTML = `
+      <button type="button" class="link-button small" id="back">← All topics</button>
+      <section style="margin-top:12px">
+        <h2>Results for “${esc(query)}”</h2>
+        <p class="small muted" style="margin:0 0 8px">Ranked by each case's best-matching passage, shown below its citation. Matches are highlighted on the map.</p>
+        <ul class="list">${results.map((r) => `
+          <li><button type="button" data-id="${esc(r.id)}">
+            <div class="row"><span>${esc(r.title)}</span><span class="score">${r.score.toFixed(3)}</span></div>
+            <div class="small secondary">${esc(topicLabel(r.cluster_id))}</div>
+            <div class="snippet">${esc(r.snippet)}…</div>
+          </button></li>`).join("")}</ul>
+      </section>`;
+    panel.querySelector("#back").addEventListener("click", clearSelection);
+    panel.querySelectorAll("button[data-id]").forEach((b) => b.addEventListener("click", () => selectDoc(b.dataset.id)));
+    panel.scrollTop = 0;
+  }
+
+  function clearSelection() {
+    state.selected = null; state.neighbors = []; state.hits = new Set(); state.searchResults = null;
+    document.getElementById("search").value = "";
+    setParam(null);
+    renderOverview(); draw();
+  }
+
+  // ---------- tooltip ----------
+  function showTooltip(html, x, y) { tooltip.innerHTML = html; tooltip.style.display = "block"; moveTooltip(x, y); }
+  function moveTooltip(x, y) {
+    const r = tooltip.getBoundingClientRect();
+    const left = Math.min(x + 14, window.innerWidth - r.width - 8);
+    const top = y + 14 + r.height > window.innerHeight ? y - r.height - 10 : y + 14;
+    tooltip.style.left = `${Math.max(8, left)}px`; tooltip.style.top = `${top}px`;
+  }
+  function hideTooltip() { tooltip.style.display = "none"; }
+
+  function nodeTooltip(n) {
+    return `<b>${esc(n.title)}</b>${n.date ? ` <span class="muted">${esc(n.date)}</span>` : ""}<br>
+      <span class="secondary">Topic:</span> ${esc(topicLabel(n.topic))}<br>
+      <span class="secondary">Community:</span> ${n.community}${n.disagrees ? `<br><span class="secondary">Methods disagree on this case</span>` : ""}`;
+  }
+
+  // ---------- interaction ----------
+  function nearest(clientX, clientY) {
+    if (!quadtree) return null;
+    const rect = canvas.getBoundingClientRect();
+    const [x, y] = state.transform.invert([clientX - rect.left, clientY - rect.top]);
+    return quadtree.find(x, y, 14 / state.transform.k) || null;  // ~28px hit target
+  }
+
+  canvas.addEventListener("mousemove", (e) => {
+    const n = nearest(e.clientX, e.clientY);
+    if (n !== state.hover) { state.hover = n; draw(); }
+    canvas.classList.toggle("pointer", !!n);
+    if (n) showTooltip(nodeTooltip(n), e.clientX, e.clientY); else hideTooltip();
+  });
+  canvas.addEventListener("mouseleave", () => { state.hover = null; hideTooltip(); draw(); });
+  canvas.addEventListener("click", (e) => {
+    const n = nearest(e.clientX, e.clientY);
+    if (n) selectDoc(n.id);
+  });
+
+  d3.select(canvas).call(
+    d3.zoom().scaleExtent([0.6, 12]).on("zoom", (e) => { state.transform = e.transform; hideTooltip(); draw(); })
+  ).on("dblclick.zoom", null);
+
+  function setMode(mode) {
+    state.mode = mode; state.isolate = null;
+    document.querySelectorAll(".segmented button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+    renderLegend(); draw();
+  }
+  document.querySelectorAll(".segmented button").forEach((b) => b.addEventListener("click", () => {
+    setMode(b.dataset.mode);
+    if (!state.selected && !state.searchResults) renderOverview();
+  }));
+  document.getElementById("edges").addEventListener("change", (e) => { state.showEdges = e.target.checked; draw(); });
+
+  document.getElementById("search-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    runSearch(document.getElementById("search").value.trim());
+  });
+
+  async function runSearch(q) {
+    if (q.length < 2) return;
+    document.getElementById("search").value = q;
+    setParam("q", q);
+    panel.innerHTML = `<div class="muted">Searching…</div>`;
+    try {
+      const results = await getJSON(`/search?q=${encodeURIComponent(q)}&top_k=12`);
+      state.selected = null; state.neighbors = [];
+      state.searchResults = results;
+      state.hits = new Set(results.map((r) => r.id));
+      draw();
+      renderSearch(q, results);
+    } catch (err) {
+      panel.innerHTML = `<p>Search failed (${esc(err.message)}).</p>`;
+    }
+  }
+
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") clearSelection(); });
+  window.addEventListener("resize", resize);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    readColors(); renderLegend(); if (!state.selected && !state.searchResults) renderOverview(); draw();
+  });
+
+  // ---------- boot ----------
+  async function boot() {
+    readColors();
+    try {
+      const data = await getJSON("/graph/export");
+      data.slots = slotMaps(data);
+      state.data = data;
+      byId = new Map(data.nodes.map((n) => [n.id, n]));
+      const c = data.comparison;
+      document.getElementById("stats").innerHTML = [
+        [data.nodes.length, "cases"], [Object.keys(data.topics).length, "topics"],
+        [data.graph.communities, "communities"], [c.ari.toFixed(2), "ARI"], [c.nmi.toFixed(2), "NMI"],
+        [pct(c.disagreement_rate), "disagree"],
+      ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+      renderLegend();  // before layout, so the map reserves room for it
+      resize();
+      renderOverview();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("doc")) selectDoc(params.get("doc"));
+      else if (params.get("q")) runSearch(params.get("q"));
+    } catch (err) {
+      panel.innerHTML = `<div id="status">Could not load the corpus (${esc(err.message)}). Is the API running?</div>`;
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
